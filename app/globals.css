@@ -1,26 +1,20 @@
+/* Skeleton v4 — cerberus theme (custom properties must precede base styles) */
+@import "@skeletonlabs/skeleton/themes/cerberus";
+
+/* Skeleton v4 — base styles (utilities, variants, keyframes) */
+@import "@skeletonlabs/skeleton";
+
+/* Tailwind v4 */
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+   FOUES institutional vars — namespaced --color-foues-* para
+   evitar colisión con tokens de Skeleton (cerberus).
+   ───────────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  --color-foues-navy: #042154;
+  --color-foues-accent: #8466ac;
+  --color-foues-red: #c60d2d;
+  --color-foues-surface: #f8fafc;
+  --color-foues-hero-overlay: rgb(0 0 0 / 0.55);
 }
