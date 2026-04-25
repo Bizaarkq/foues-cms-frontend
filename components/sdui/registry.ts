@@ -23,6 +23,7 @@ import RichText from "./blocks/RichText";
 import Cta from "./blocks/Cta";
 import Calendar from "./blocks/Calendar";
 import MapBlock from "./blocks/MapBlock";
+import StaffSection from "./blocks/StaffSection";
 
 export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.hero-landing": HeroLanding,
@@ -37,4 +38,5 @@ export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.cta": Cta,
   "blocks.calendar": Calendar,
   "blocks.map": MapBlock,
+  "blocks.staff-section": StaffSection,
 };

@@ -6,25 +6,23 @@
 import type { SDUIBlock } from "./blocks";
 
 // ---------------------------------------------------------------------------
-// Section & Route
+// Route type
 // ---------------------------------------------------------------------------
 
-/** Minimal section data returned in the navbar query. */
-export interface SectionData {
-  documentId: string;
-  name: string;
-  slug: string;
-  order: number;
-  path: string | null;   // ruta propia de la sección (opcional)
-  routes: RouteNavItem[];
-}
+export type RouteType = 'page' | 'section' | 'header';
+
+// ---------------------------------------------------------------------------
+// Route nav item (used in navbar rendering)
+// ---------------------------------------------------------------------------
 
 /** Route item used in navbar rendering. */
 export interface RouteNavItem {
   documentId: string;
   path: string;
   label: string | null;
-  hasPage: boolean;
+  type: RouteType;
+  order: number;
+  slug: string | null;
   children: RouteNavItem[];
 }
 
@@ -48,7 +46,8 @@ export interface RouteData {
   documentId: string;
   path: string;
   label: string | null;
-  hasPage: boolean;
+  type: RouteType;
+  slug: string | null;
   page: PageData | null;
 }
 
@@ -56,9 +55,9 @@ export interface RouteData {
 // Navbar & Footer
 // ---------------------------------------------------------------------------
 
-/** Navbar data — sections with their routes, ordered by section.order. */
+/** Navbar data — tree of route items ordered by route.order. */
 export interface NavbarData {
-  sections: SectionData[];
+  items: RouteNavItem[];
 }
 
 // ---------------------------------------------------------------------------

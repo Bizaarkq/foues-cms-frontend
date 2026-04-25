@@ -110,6 +110,26 @@ export interface MapProps {
   longitude: number | null;
 }
 
+export interface StaffMemberItem {
+  documentId: string;
+  nombre: string;
+  cargo: string;
+  foto: StrapiMedia | null;
+  descripcion: string | null;
+}
+
+export interface OrganizationalUnitItem {
+  documentId: string;
+  nombre: string;
+  tipo: string;
+  miembros: StaffMemberItem[];
+}
+
+export interface StaffSectionProps {
+  titulo: string | null;
+  unidad: OrganizationalUnitItem | null;
+}
+
 // ---------------------------------------------------------------------------
 // Discriminated union — REQ-T03
 // ---------------------------------------------------------------------------
@@ -134,4 +154,5 @@ export type SDUIBlock =
   | ({ __component: "blocks.cta" } & CtaProps)
   | ({ __component: "blocks.calendar" } & CalendarProps)
   | ({ __component: "blocks.map" } & MapProps)
+  | ({ __component: "blocks.staff-section" } & StaffSectionProps)
   | { __component: string }; // forward-compat fallback for unknown blocks

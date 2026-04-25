@@ -20,7 +20,7 @@
  *   All TS types retain the "blocks.X" / "elements.X" discriminant format per design.
  */
 
-import type { PageQueryResult, RouteData, NavbarData, FooterColumn } from "@/types/page";
+import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, FooterColumn } from "@/types/page";
 import type { SDUIBlock } from "@/types/blocks";
 import { env } from "./env";
 
@@ -87,6 +87,7 @@ const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksCta: "blocks.cta",
   ComponentBlocksCalendar: "blocks.calendar",
   ComponentBlocksMap: "blocks.map",
+  ComponentBlocksStaffSection: "blocks.staff-section",
 };
 
 const FOOTER_TYPENAME_TO_COMPONENT: Record<string, string> = {
@@ -207,6 +208,22 @@ const BLOCK_FRAGMENTS = /* GraphQL */ `
     latitude
     longitude
   }
+  ... on ComponentBlocksStaffSection {
+    __typename
+    titulo
+    unidad {
+      documentId
+      nombre
+      tipo
+      miembros {
+        documentId
+        nombre
+        cargo
+        descripcion
+        foto { documentId url alternativeText width height mime name }
+      }
+    }
+  }
 `;
 
 // ---------------------------------------------------------------------------
@@ -215,11 +232,12 @@ const BLOCK_FRAGMENTS = /* GraphQL */ `
 
 const PAGE_BY_PATH_QUERY = /* GraphQL */ `
   query PageByPath($path: String!) {
-    routes(filters: { path: { eq: $path } }) {
+    routeByPath: routes(filters: { path: { eq: $path } }) {
       documentId
       path
       label
-      hasPage
+      type
+      slug
       page {
         documentId
         title
@@ -229,22 +247,31 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
         }
       }
     }
-    sections(sort: "order:asc") {
+    navTree: routes(
+      filters: { parent: { documentId: { null: true } } }
+      sort: "order:asc"
+      pagination: { limit: 100 }
+    ) {
       documentId
-      name
-      slug
-      order
       path
-      routes(sort: "path:asc") {
+      label
+      slug
+      type
+      order
+      children(sort: "order:asc") {
         documentId
         path
         label
-        hasPage
-        children {
+        slug
+        type
+        order
+        children(sort: "order:asc") {
           documentId
           path
           label
-          hasPage
+          slug
+          type
+          order
         }
       }
     }
@@ -290,12 +317,23 @@ interface RawBlock extends Record<string, unknown> {
   __typename: string;
 }
 
+interface RawRouteNode {
+  documentId: string;
+  path: string;
+  label: string | null;
+  slug: string | null;
+  type: 'page' | 'section' | 'header';
+  order: number;
+  children?: RawRouteNode[];
+}
+
 interface PageByPathResponse {
-  routes: Array<{
+  routeByPath: Array<{
     documentId: string;
     path: string;
     label: string | null;
-    hasPage: boolean;
+    type: 'page' | 'section' | 'header';
+    slug: string | null;
     page: {
       documentId: string;
       title: string;
@@ -303,30 +341,28 @@ interface PageByPathResponse {
       content: RawBlock[];
     } | null;
   }>;
-  sections: Array<{
-    documentId: string;
-    name: string;
-    slug: string;
-    order: number;
-    path: string | null;
-    routes: Array<{
-      documentId: string;
-      path: string;
-      label: string | null;
-      hasPage: boolean;
-      children: Array<{
-        documentId: string;
-        path: string;
-        label: string | null;
-        hasPage: boolean;
-      }>;
-    }>;
-  }>;
+  navTree: RawRouteNode[];
   footer: {
     copyright: string | null;
     bottom_links: Array<{ label: string; url: string | null; variant: string; icon: string | null }>;
     columns: Array<Record<string, unknown> & { __typename: string }>;
   } | null;
+}
+
+// ---------------------------------------------------------------------------
+// Nav tree mapper
+// ---------------------------------------------------------------------------
+
+function mapRouteNode(r: RawRouteNode): RouteNavItem {
+  return {
+    documentId: r.documentId,
+    path: r.path,
+    label: r.label,
+    slug: r.slug,
+    type: r.type,
+    order: r.order,
+    children: (r.children ?? []).map(mapRouteNode),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -355,14 +391,15 @@ export async function getPageByPath(
   }
 
   // Resolve route (first match or null)
-  const rawRoute = data.routes[0] ?? null;
+  const rawRoute = data.routeByPath[0] ?? null;
 
   const route: RouteData | null = rawRoute
     ? {
         documentId: rawRoute.documentId,
         path: rawRoute.path,
         label: rawRoute.label,
-        hasPage: rawRoute.hasPage,
+        type: rawRoute.type,
+        slug: rawRoute.slug,
         page: rawRoute.page
           ? {
               documentId: rawRoute.page.documentId,
@@ -374,28 +411,9 @@ export async function getPageByPath(
       }
     : null;
 
-  // Build navbar from sections
+  // Build navbar from root routes tree
   const navbar: NavbarData = {
-    sections: data.sections.map((s) => ({
-      documentId: s.documentId,
-      name: s.name,
-      slug: s.slug,
-      order: s.order,
-      path: s.path,
-      routes: s.routes.map((r) => ({
-        documentId: r.documentId,
-        path: r.path,
-        label: r.label,
-        hasPage: r.hasPage,
-        children: r.children.map((c) => ({
-          documentId: c.documentId,
-          path: c.path,
-          label: c.label,
-          hasPage: c.hasPage,
-          children: [], // depth-1 children; extend if deeper nav needed
-        })),
-      })),
-    })),
+    items: data.navTree.map(mapRouteNode),
   };
 
   return {
