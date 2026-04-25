@@ -20,6 +20,8 @@ const protocol = parsed.protocol.replace(":", "") as "http" | "https";
 const hostname = parsed.hostname;
 const port = parsed.port || (protocol === "https" ? "443" : "80");
 
+export const isDev = process.env.NODE_ENV === "development";
+
 export const env = {
   strapi: {
     url: STRAPI_URL,

@@ -17,19 +17,23 @@ export default function PhotoGallery({ title, subtitle, images, photo_columns }:
       style={{ borderTopColor: "var(--color-foues-navy)" }}
     >
       <div className="max-w-[1920px] mx-auto px-6">
-        {title && (
+        {(title || subtitle) && (
           <div className="mb-10">
-            <h2
-              className="text-2xl font-bold uppercase tracking-wider sm:text-3xl"
-              style={{ color: "var(--color-foues-navy)" }}
-            >
-              {title}
-            </h2>
-            <span
-              className="mt-2 block h-1 w-24"
-              style={{ backgroundColor: "var(--color-foues-accent)" }}
-              aria-hidden="true"
-            />
+            {title && (
+              <>
+                <h2
+                  className="text-2xl font-bold uppercase tracking-wider sm:text-3xl"
+                  style={{ color: "var(--color-foues-navy)" }}
+                >
+                  {title}
+                </h2>
+                <span
+                  className="mt-2 block h-1 w-24"
+                  style={{ backgroundColor: "var(--color-foues-accent)" }}
+                  aria-hidden="true"
+                />
+              </>
+            )}
             {subtitle && (
               <p className="mt-4 max-w-3xl text-base text-gray-600">{subtitle}</p>
             )}

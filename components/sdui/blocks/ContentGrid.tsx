@@ -26,10 +26,12 @@ function CardDefault({ item }: { item: CardElement }) {
 
   const inner = (
     <div className="bg-white shadow-md overflow-hidden flex flex-col h-full">
-      {imgUrl && (
-        <div className="relative h-48 w-full overflow-hidden shrink-0">
+      {imgUrl ? (
+        <div className="relative aspect-[16/10] w-full overflow-hidden shrink-0">
           <Image src={imgUrl} alt={imgAlt} fill className="object-cover" sizes="(max-width:640px) 100vw, 33vw" />
         </div>
+      ) : (
+        <div className="aspect-[16/10] w-full shrink-0 bg-gray-100" aria-hidden="true" />
       )}
       <div className="p-5 flex flex-col flex-1 gap-3">
         {item.tag && (

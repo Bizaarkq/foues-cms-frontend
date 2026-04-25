@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { env } from "./lib/env";
+import { env, isDev } from "./lib/env";
 
 /**
  * next.config.ts
@@ -11,8 +11,6 @@ import { env } from "./lib/env";
  * por seguridad SSRF en el optimizador de imágenes. En prod el optimizador
  * corre contra el host real de Strapi (IP pública, sin restricción).
  */
-
-const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
   images: {

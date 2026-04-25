@@ -6,6 +6,7 @@ export function contentGridCols(col: ContentGridColumns): string {
     case "col_2": return "grid grid-cols-1 sm:grid-cols-2";
     case "col_3": return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
     case "col_4": return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
+    default: return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
   }
 }
 
@@ -14,5 +15,6 @@ export function photoGridCols(col: PhotoGalleryColumns): string {
     case "col_2": return "grid grid-cols-1 sm:grid-cols-2";
     case "col_3": return "grid grid-cols-2 lg:grid-cols-3";
     case "col_4": return "grid grid-cols-2 lg:grid-cols-4";
+    default: return "grid grid-cols-2 lg:grid-cols-3";
   }
 }
