@@ -7,14 +7,122 @@
 /* Tailwind v4 */
 @import "tailwindcss";
 
+/* Typography plugin — prose styles for RichText block */
+@plugin "@tailwindcss/typography";
+
 /* ─────────────────────────────────────────────────────────────
    FOUES institutional vars — namespaced --color-foues-* para
    evitar colisión con tokens de Skeleton (cerberus).
    ───────────────────────────────────────────────────────────── */
 :root {
+  /* Brand */
   --color-foues-navy: #042154;
   --color-foues-accent: #8466ac;
   --color-foues-red: #c60d2d;
-  --color-foues-surface: #f8fafc;
+
+  /* Surfaces */
+  --color-foues-surface: #ffffff;
+  --color-foues-surface-raised: #ffffff;
+  --color-foues-surface-sunken: #f1f5f9;
+
+  /* Borders */
+  --color-foues-border: #f3f4f6;
+  --color-foues-border-subtle: #e2e8f0;
+  --color-foues-border-input: #d1d5db;
+
+  /* Text */
+  --color-foues-text-base: #111827;
+  --color-foues-text-strong: #1f2937;
+  --color-foues-text-body: #374151;
+  --color-foues-text-secondary: #4b5563;
+  --color-foues-text-muted: #6b7280;
+  --color-foues-text-faint: #9ca3af;
+
+  /* Inputs */
+  --color-foues-input-bg: #ffffff;
+  --color-foues-input-text: #111827;
+  --color-foues-input-border: #d1d5db;
+  --color-foues-input-focus-ring: #8466ac;
+  --color-foues-input-checked: #8466ac;
+
+  /* State */
+  --color-foues-state-success: #15803d;
+  --color-foues-state-error: #dc2626;
+
+  /* Action */
+  --color-foues-action-primary: #042154;
+  --color-foues-action-primary-hover: #0a3680;
+
+  /* Legacy */
   --color-foues-hero-overlay: rgb(0 0 0 / 0.55);
+}
+
+/* Dark palette — static backstop. Active even if <ThemeVars/> is absent
+   (rollback safety) or Strapi is down. Toggled via data-foues-theme on <html>. */
+[data-foues-theme='dark'] {
+  color-scheme: dark;
+
+  /* Brand */
+  --color-foues-navy: #4d82d6;
+  --color-foues-accent: #a888cc;
+  --color-foues-red: #e63553;
+
+  /* Surfaces */
+  --color-foues-surface: #0f172a;
+  --color-foues-surface-raised: #1e293b;
+  --color-foues-surface-sunken: #0f172a;
+
+  /* Borders */
+  --color-foues-border: #1e293b;
+  --color-foues-border-subtle: #334155;
+  --color-foues-border-input: #475569;
+
+  /* Text */
+  --color-foues-text-base: #f1f5f9;
+  --color-foues-text-strong: #f8fafc;
+  --color-foues-text-body: #cbd5e1;
+  --color-foues-text-secondary: #94a3b8;
+  --color-foues-text-muted: #94a3b8;
+  --color-foues-text-faint: #64748b;
+
+  /* Inputs */
+  --color-foues-input-bg: #1e293b;
+  --color-foues-input-text: #f1f5f9;
+  --color-foues-input-border: #475569;
+  --color-foues-input-focus-ring: #a888cc;
+  --color-foues-input-checked: #a888cc;
+
+  /* State */
+  --color-foues-state-success: #4ade80;
+  --color-foues-state-error: #f87171;
+
+  /* Action */
+  --color-foues-action-primary: #4d82d6;
+  --color-foues-action-primary-hover: #6b9de0;
+
+  /* Legacy */
+  --color-foues-hero-overlay: rgb(0 0 0 / 0.65);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Prose (RichText block) — colores institucionales foues.
+   Sobreescribe los defaults grises de @tailwindcss/typography.
+   ───────────────────────────────────────────────────────────── */
+.prose {
+  --tw-prose-body: #1e293b;
+  --tw-prose-headings: var(--color-foues-navy);
+  --tw-prose-lead: #475569;
+  --tw-prose-links: var(--color-foues-accent);
+  --tw-prose-bold: var(--color-foues-navy);
+  --tw-prose-counters: var(--color-foues-accent);
+  --tw-prose-bullets: var(--color-foues-accent);
+  --tw-prose-hr: #e2e8f0;
+  --tw-prose-quotes: var(--color-foues-navy);
+  --tw-prose-quote-borders: var(--color-foues-accent);
+  --tw-prose-captions: #64748b;
+  --tw-prose-code: var(--color-foues-navy);
+  --tw-prose-pre-code: #f8fafc;
+  --tw-prose-pre-bg: var(--color-foues-navy);
+  --tw-prose-th-borders: #cbd5e1;
+  --tw-prose-td-borders: #e2e8f0;
 }
