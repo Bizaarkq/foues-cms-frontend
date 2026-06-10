@@ -25,24 +25,24 @@ function CardDefault({ item }: { item: CardElement }) {
   const imgAlt = mediaAlt(item.image, item.title);
 
   const inner = (
-    <div className="bg-white shadow-md overflow-hidden flex flex-col h-full">
+    <div className="bg-[var(--color-foues-surface-raised)] shadow-md overflow-hidden flex flex-col h-full">
       {imgUrl ? (
         <div className="relative aspect-[16/10] w-full overflow-hidden shrink-0">
           <Image src={imgUrl} alt={imgAlt} fill className="object-cover" sizes="(max-width:640px) 100vw, 33vw" />
         </div>
       ) : (
-        <div className="aspect-[16/10] w-full shrink-0 bg-gray-100" aria-hidden="true" />
+        <div className="aspect-[16/10] w-full shrink-0 bg-[var(--color-foues-surface-sunken)]" aria-hidden="true" />
       )}
       <div className="p-5 flex flex-col flex-1 gap-3">
         {item.tag && (
-          <div className="flex items-center gap-2 text-gray-500">
+          <div className="flex items-center gap-2 text-[var(--color-foues-text-muted)]">
             <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="text-sm font-semibold">{item.tag}</span>
           </div>
         )}
-        <h3 className="font-bold text-base leading-snug text-gray-900">{item.title}</h3>
+        <h3 className="font-bold text-base leading-snug text-[var(--color-foues-text-base)]">{item.title}</h3>
         {item.description && (
-          <p className="text-sm text-gray-600 line-clamp-3 flex-1">{item.description}</p>
+          <p className="text-sm text-[var(--color-foues-text-secondary)] line-clamp-3 flex-1">{item.description}</p>
         )}
         {item.url && (
           <div className="mt-2 flex items-center gap-1">
@@ -168,7 +168,7 @@ export default function ContentGrid({
   const CardComponent = CARD_COMPONENTS[card_style] ?? CardDefault;
 
   return (
-    <section className="w-full py-16" style={{ backgroundColor: "#f9fafb" }}>
+    <section className="w-full py-16 bg-[var(--color-foues-surface-sunken)]">
       <div className="max-w-[1920px] mx-auto px-6">
         {title && (
           <div className="mb-10">
@@ -183,7 +183,7 @@ export default function ContentGrid({
           </div>
         )}
         {items.length === 0 ? (
-          <p className="text-center text-gray-500">No hay contenido disponible</p>
+          <p className="text-center text-[var(--color-foues-text-muted)]">No hay contenido disponible</p>
         ) : (
           <div className={`${gridClass} gap-6`}>
             {items.map((item, i) => (

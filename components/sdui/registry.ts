@@ -24,6 +24,14 @@ import Cta from "./blocks/Cta";
 import Calendar from "./blocks/Calendar";
 import MapBlock from "./blocks/MapBlock";
 import StaffSection from "./blocks/StaffSection";
+import BulletList from "./blocks/BulletList";
+import KeyDates from "./blocks/KeyDates";
+import InfoCard from "./blocks/InfoCard";
+import ClinicSchedule from "./blocks/ClinicSchedule";
+import IconStrip from "./blocks/IconStrip";
+import MapSchedule from "./blocks/MapSchedule";
+import Section from "./blocks/Section";
+import DynamicFormBlock from "./blocks/DynamicFormBlock";
 
 export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.hero-landing": HeroLanding,
@@ -39,4 +47,12 @@ export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.calendar": Calendar,
   "blocks.map": MapBlock,
   "blocks.staff-section": StaffSection,
+  "blocks.bullet-list": BulletList,
+  "blocks.key-dates": KeyDates,
+  "blocks.info-card": InfoCard,
+  "blocks.clinic-schedule": ClinicSchedule,
+  "blocks.icon-strip": IconStrip,
+  "blocks.map-schedule": MapSchedule,
+  "blocks.section": Section,
+  "blocks.form": DynamicFormBlock,
 };

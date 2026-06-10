@@ -7,9 +7,9 @@ function StaffCard({ member }: { member: StaffMemberItem }) {
   const imgAlt = mediaAlt(member.foto, member.nombre);
 
   return (
-    <div className="flex flex-col items-center gap-4 bg-white p-6 shadow-sm">
+    <div className="flex flex-col items-center gap-4 bg-[var(--color-foues-surface-raised)] p-6 shadow-sm">
       {/* Photo */}
-      <div className="relative h-40 w-40 overflow-hidden rounded-full shrink-0 bg-gray-100">
+      <div className="relative h-40 w-40 overflow-hidden rounded-full shrink-0 bg-[var(--color-foues-surface-sunken)]">
         {imgUrl ? (
           <Image
             src={imgUrl}
@@ -37,9 +37,9 @@ function StaffCard({ member }: { member: StaffMemberItem }) {
         >
           {member.cargo}
         </p>
-        <p className="mt-1 text-base font-bold text-gray-800">{member.nombre}</p>
+        <p className="mt-1 text-base font-bold text-[var(--color-foues-text-strong)]">{member.nombre}</p>
         {member.descripcion && (
-          <p className="mt-2 text-sm text-gray-500 leading-relaxed">{member.descripcion}</p>
+          <p className="mt-2 text-sm text-[var(--color-foues-text-muted)] leading-relaxed">{member.descripcion}</p>
         )}
       </div>
     </div>
@@ -52,7 +52,7 @@ export default function StaffSection({ titulo, unidad }: StaffSectionProps) {
   const heading = titulo ?? unidad.nombre;
 
   return (
-    <section className="w-full py-16 bg-white">
+    <section className="w-full py-16 bg-[var(--color-foues-surface)]">
       <div className="max-w-[1920px] mx-auto px-6">
         {/* Section title */}
         <div className="mb-12">

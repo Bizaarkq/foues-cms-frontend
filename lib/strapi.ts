@@ -21,7 +21,8 @@
  */
 
 import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, FooterColumn } from "@/types/page";
-import type { SDUIBlock } from "@/types/blocks";
+import type { SDUIBlock, BlockGroupContent } from "@/types/blocks";
+import type { ButtonVariant } from "@/types/elements";
 import { env } from "./env";
 
 // ---------------------------------------------------------------------------
@@ -31,14 +32,18 @@ import { env } from "./env";
 /**
  * gql — typed GraphQL POST with 24h Next.js ISR cache.
  *
- * @param query  - GraphQL document string
+ * @param query     - GraphQL document string
  * @param variables - Optional query variables
+ * @param nextOpts  - Optional `next` override merged over `{ revalidate: 86400 }`.
+ *                    Pass `{ tags: [...] }` to enable on-demand revalidation via
+ *                    revalidateTag(). Spec C — "Cache Tags on Strapi Fetches".
  * @returns Typed `data` field from the GraphQL response
  * @throws Error on non-2xx HTTP status or GraphQL `errors`
  */
 export async function gql<T>(
   query: string,
-  variables?: Record<string, unknown>
+  variables?: Record<string, unknown>,
+  nextOpts?: { revalidate?: number; tags?: string[] }
 ): Promise<T> {
   const res = await fetch(`${env.strapi.url}/graphql`, {
     method: "POST",
@@ -49,7 +54,7 @@ export async function gql<T>(
     body: JSON.stringify({ query, variables }),
     // 24h time-based ISR — Decision #9
     // Source: node_modules/next/dist/docs/.../fetch.md §options.next.revalidate
-    next: { revalidate: 86400 },
+    next: { revalidate: 86400, ...nextOpts },
   });
 
   if (!res.ok) {
@@ -83,11 +88,19 @@ const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksTimeline: "blocks.timeline",
   ComponentBlocksMissionVision: "blocks.mission-vision",
   ComponentBlocksProcessSteps: "blocks.process-steps",
+  ComponentBlocksBulletList: "blocks.bullet-list",
+  ComponentBlocksKeyDates: "blocks.key-dates",
+  ComponentBlocksInfoCard: "blocks.info-card",
   ComponentBlocksRichText: "blocks.rich-text",
   ComponentBlocksCta: "blocks.cta",
   ComponentBlocksCalendar: "blocks.calendar",
   ComponentBlocksMap: "blocks.map",
   ComponentBlocksStaffSection: "blocks.staff-section",
+  ComponentBlocksClinicSchedule: "blocks.clinic-schedule",
+  ComponentBlocksIconStrip: "blocks.icon-strip",
+  ComponentBlocksMapSchedule: "blocks.map-schedule",
+  ComponentBlocksSection: "blocks.section",
+  ComponentBlocksForm: "blocks.form",
 };
 
 const FOOTER_TYPENAME_TO_COMPONENT: Record<string, string> = {
@@ -102,35 +115,82 @@ function normalizeFooterColumns(
 ): FooterColumn[] {
   return columns.map((col) => {
     const typename = col.__typename as string | undefined;
-    if (!typename) return col as FooterColumn;
+    if (!typename) return col as unknown as FooterColumn;
     const component = FOOTER_TYPENAME_TO_COMPONENT[typename] ?? typename;
     const { __typename: _removed, ...rest } = col;
     return { ...rest, __component: component } as FooterColumn;
   });
 }
 
+const MAX_NESTING_DEPTH = 2;
+
 /**
  * Converts __typename fields on a blocks array into __component (Strapi uid format).
- * Unknown types are passed through with their __typename as-is (forward-compat).
+ * For blocks.section: recurses into children[].blocks with cycle detection and depth guard.
+ *
+ * @param blocks   - Raw block array from GraphQL response
+ * @param visited  - Set of block-group documentIds already in the current ancestor chain (ADR-3)
+ * @param depth    - Current recursion depth; guard fires at MAX_NESTING_DEPTH (ADR-5, ADR-6)
  */
 function normalizeBlocks(
-  blocks: Array<Record<string, unknown>>
+  blocks: Array<Record<string, unknown>>,
+  visited: Set<string> = new Set(),
+  depth: number = 0
 ): SDUIBlock[] {
   return blocks.map((block) => {
     const typename = block.__typename as string | undefined;
-    if (!typename) return block as SDUIBlock;
-    const component = TYPENAME_TO_COMPONENT[typename] ?? typename;
+    const component = typename ? (TYPENAME_TO_COMPONENT[typename] ?? typename) : undefined;
     const { __typename: _removed, ...rest } = block;
-    return { ...rest, __component: component } as SDUIBlock;
+    const base = { ...rest, __component: component } as Record<string, unknown>;
+
+    if (component === "blocks.section") {
+      const rawChildren = (block.children as RawBlockGroup[] | undefined) ?? [];
+
+      if (depth >= MAX_NESTING_DEPTH) {
+        console.warn(
+          `[normalizeBlocks] section at depth ${depth} exceeds MAX_NESTING_DEPTH (${MAX_NESTING_DEPTH}); rendering with empty children.`
+        );
+        return { ...base, children: [] } as unknown as SDUIBlock;
+      }
+
+      const normalizedChildren: BlockGroupContent[] = rawChildren
+        .map((group) => {
+          const id = group.documentId;
+          if (!id) return null;
+          if (visited.has(id)) {
+            console.warn(
+              `[normalizeBlocks] cycle detected on block-group "${id}"; skipping.`
+            );
+            return null;
+          }
+          const nextVisited = new Set(visited).add(id);
+          return {
+            id,
+            name: group.name ?? null,
+            group_columns: group.group_columns ?? null,
+            blocks: normalizeBlocks(group.blocks ?? [], nextVisited, depth + 1),
+          };
+        })
+        .filter((g): g is BlockGroupContent => g !== null);
+
+      return { ...base, children: normalizedChildren } as SDUIBlock;
+    }
+
+    // Standard flat block (the 19 leaf types): no recursion.
+    if (!typename) return block as SDUIBlock;
+    return base as SDUIBlock;
   });
 }
 
 // ---------------------------------------------------------------------------
 // Inline fragment helpers (REQ-G03)
-// All 12 block inline fragments — each selects __typename for discrimination.
+// Stratified fragments — ADR-2: two levels to avoid recursive GraphQL fragments.
+// LEAF_BLOCK_FRAGMENTS: the 19 flat blocks (no section). Reusable at any depth.
+// SECTION_BLOCK_FRAGMENT_L1: section populated with LEAF children (level 1 only).
+// TOP_LEVEL_BLOCK_FRAGMENTS: what page.content receives (LEAF + SECTION_L1).
 // ---------------------------------------------------------------------------
 
-const BLOCK_FRAGMENTS = /* GraphQL */ `
+const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
   ... on ComponentBlocksHeroLanding {
     __typename
     title
@@ -143,6 +203,7 @@ const BLOCK_FRAGMENTS = /* GraphQL */ `
     title
     subtitle
     backgroundImage { documentId url alternativeText width height mime name }
+    gradient
   }
   ... on ComponentBlocksContentGrid {
     __typename
@@ -166,6 +227,7 @@ const BLOCK_FRAGMENTS = /* GraphQL */ `
   ... on ComponentBlocksQuickLinks {
     __typename
     title
+    ql_columns
     links { label url icon description }
   }
   ... on ComponentBlocksTimeline {
@@ -224,6 +286,91 @@ const BLOCK_FRAGMENTS = /* GraphQL */ `
       }
     }
   }
+  ... on ComponentBlocksBulletList {
+    __typename
+    title
+    items { text }
+    cta { label url variant icon }
+  }
+  ... on ComponentBlocksKeyDates {
+    __typename
+    title
+    display_mode
+    items { start_date end_date label description }
+  }
+  ... on ComponentBlocksInfoCard {
+    __typename
+    title
+    body
+    cta { label url variant icon }
+  }
+  ... on ComponentBlocksClinicSchedule {
+    __typename
+    clinic_name
+    hours { day_range time_range }
+    schedule_text
+  }
+  ... on ComponentBlocksIconStrip {
+    __typename
+    title
+    links { label url icon description }
+  }
+  ... on ComponentBlocksMapSchedule {
+    __typename
+    clinic_name
+    address
+    embed_url
+    hours { day_range time_range }
+    schedule_text
+  }
+  ... on ComponentBlocksForm {
+    __typename
+    title
+    submit_label
+    form {
+      documentId
+      title
+      description
+      submit_label
+      success_message
+      error_message
+      fields {
+        name
+        label
+        field_type
+        required
+        placeholder
+        help_text
+        options
+        min_length
+        max_length
+      }
+    }
+  }
+`;
+
+// Section fragment level 1: populates children.blocks with LEAF fragments only.
+// GraphQL prohibits recursive fragments, so section nesting is resolved at query-build time.
+const SECTION_BLOCK_FRAGMENT_L1 = /* GraphQL */ `
+  ... on ComponentBlocksSection {
+    __typename
+    name
+    section_columns
+    children {
+      documentId
+      name
+      group_columns
+      blocks {
+        ${LEAF_BLOCK_FRAGMENTS}
+      }
+    }
+  }
+`;
+
+// What gets inserted into page.content dynamic zone: all leaf blocks + section-with-leaf-children.
+const TOP_LEVEL_BLOCK_FRAGMENTS = /* GraphQL */ `
+  ${LEAF_BLOCK_FRAGMENTS}
+  ${SECTION_BLOCK_FRAGMENT_L1}
 `;
 
 // ---------------------------------------------------------------------------
@@ -238,12 +385,20 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
       label
       type
       slug
+      active
+      visibility
+      parent {
+        active
+        parent {
+          active
+        }
+      }
       page {
         documentId
         title
         layout
         content {
-          ${BLOCK_FRAGMENTS}
+          ${TOP_LEVEL_BLOCK_FRAGMENTS}
         }
       }
     }
@@ -258,6 +413,8 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
       slug
       type
       order
+      active
+      visibility
       children(sort: "order:asc") {
         documentId
         path
@@ -265,6 +422,8 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
         slug
         type
         order
+        active
+        visibility
         children(sort: "order:asc") {
           documentId
           path
@@ -272,6 +431,8 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
           slug
           type
           order
+          active
+          visibility
         }
       }
     }
@@ -317,6 +478,14 @@ interface RawBlock extends Record<string, unknown> {
   __typename: string;
 }
 
+/** Raw block-group as returned by GraphQL inside a section's children array. */
+interface RawBlockGroup {
+  documentId: string;
+  name: string | null;
+  group_columns: number | null;
+  blocks: RawBlock[];
+}
+
 interface RawRouteNode {
   documentId: string;
   path: string;
@@ -324,7 +493,14 @@ interface RawRouteNode {
   slug: string | null;
   type: 'page' | 'section' | 'header';
   order: number;
+  active: boolean;
+  visibility?: 'public' | 'requires-login' | null;
   children?: RawRouteNode[];
+}
+
+interface RawRouteParent {
+  active: boolean;
+  parent?: RawRouteParent | null;
 }
 
 interface PageByPathResponse {
@@ -334,6 +510,9 @@ interface PageByPathResponse {
     label: string | null;
     type: 'page' | 'section' | 'header';
     slug: string | null;
+    active: boolean;
+    visibility?: 'public' | 'requires-login' | null;
+    parent: RawRouteParent | null;
     page: {
       documentId: string;
       title: string;
@@ -344,7 +523,7 @@ interface PageByPathResponse {
   navTree: RawRouteNode[];
   footer: {
     copyright: string | null;
-    bottom_links: Array<{ label: string; url: string | null; variant: string; icon: string | null }>;
+    bottom_links: Array<{ label: string; url: string | null; variant: ButtonVariant; icon: string | null }>;
     columns: Array<Record<string, unknown> & { __typename: string }>;
   } | null;
 }
@@ -361,7 +540,11 @@ function mapRouteNode(r: RawRouteNode): RouteNavItem {
     slug: r.slug,
     type: r.type,
     order: r.order,
-    children: (r.children ?? []).map(mapRouteNode),
+    active: r.active,
+    visibility: r.visibility ?? 'public',
+    children: (r.children ?? [])
+      .filter((c) => c.active !== false)
+      .map(mapRouteNode),
   };
 }
 
@@ -384,7 +567,12 @@ export async function getPageByPath(
   let data: PageByPathResponse;
 
   try {
-    data = await gql<PageByPathResponse>(PAGE_BY_PATH_QUERY, { path });
+    // Spec C: tag with page-specific + collection tags for on-demand revalidation
+    data = await gql<PageByPathResponse>(
+      PAGE_BY_PATH_QUERY,
+      { path },
+      { tags: [`page:${path}`, 'pages', 'routes'] }
+    );
   } catch (err) {
     console.error(`[strapi] getPageByPath("${path}") failed:`, err);
     return null;
@@ -393,13 +581,24 @@ export async function getPageByPath(
   // Resolve route (first match or null)
   const rawRoute = data.routeByPath[0] ?? null;
 
-  const route: RouteData | null = rawRoute
+  function isAncestorDisabled(parent: RawRouteParent | null | undefined): boolean {
+    if (!parent) return false;
+    if (parent.active === false) return true;
+    return isAncestorDisabled(parent.parent);
+  }
+
+  const isRouteEnabled = rawRoute
+    ? rawRoute.active !== false && !isAncestorDisabled(rawRoute.parent)
+    : false;
+
+  const route: RouteData | null = rawRoute && isRouteEnabled
     ? {
         documentId: rawRoute.documentId,
         path: rawRoute.path,
         label: rawRoute.label,
         type: rawRoute.type,
         slug: rawRoute.slug,
+        visibility: rawRoute.visibility ?? 'public',
         page: rawRoute.page
           ? {
               documentId: rawRoute.page.documentId,
@@ -413,7 +612,9 @@ export async function getPageByPath(
 
   // Build navbar from root routes tree
   const navbar: NavbarData = {
-    items: data.navTree.map(mapRouteNode),
+    items: data.navTree
+      .filter((r) => r.active !== false)
+      .map(mapRouteNode),
   };
 
   return {
@@ -431,4 +632,96 @@ export async function getPageByPath(
           bottom_links: [],
         },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Global Theme (admin-editable brand palette)
+// ---------------------------------------------------------------------------
+
+export interface BasicColors {
+  navy: string | null;
+  accent: string | null;
+  red: string | null;
+  surface: string | null;
+  surface_raised: string | null;
+  text_base: string | null;
+  text_body: string | null;
+  border_input: string | null;
+  input_focus_ring: string | null;
+  action_primary: string | null;
+}
+
+export interface AdvancedColors {
+  surface_sunken: string | null;
+  border: string | null;
+  border_subtle: string | null;
+  text_strong: string | null;
+  text_secondary: string | null;
+  text_muted: string | null;
+  text_faint: string | null;
+  input_bg: string | null;
+  input_text: string | null;
+  input_checked: string | null;
+  action_primary_hover: string | null;
+  state_success: string | null;
+  state_error: string | null;
+}
+
+export interface GlobalTheme {
+  light: BasicColors | null;
+  dark: BasicColors | null;
+  light_advanced: AdvancedColors | null;
+  dark_advanced: AdvancedColors | null;
+}
+
+const BASIC_FIELDS = `
+  navy accent red surface surface_raised
+  text_base text_body border_input input_focus_ring action_primary
+`;
+
+const ADVANCED_FIELDS = `
+  surface_sunken border border_subtle
+  text_strong text_secondary text_muted text_faint
+  input_bg input_text input_checked action_primary_hover
+  state_success state_error
+`;
+
+const GLOBAL_THEME_QUERY = /* GraphQL */ `
+  query GetGlobalTheme {
+    globalTheme {
+      light { ${BASIC_FIELDS} }
+      dark { ${BASIC_FIELDS} }
+      light_advanced { ${ADVANCED_FIELDS} }
+      dark_advanced { ${ADVANCED_FIELDS} }
+    }
+  }
+`;
+
+interface GlobalThemeResponse {
+  globalTheme: GlobalTheme | null;
+}
+
+/**
+ * getGlobalTheme — fetches the admin-editable brand palette.
+ *
+ * Uses the shared `gql<T>()` helper (inherits the 24h ISR cache — no inline
+ * `next: { revalidate }` override). On ANY failure (network, GraphQL errors,
+ * Strapi unreachable, or missing public read permission) it logs and returns
+ * `null` so the consumer (`<ThemeVars/>`) can fall back to hardcoded defaults.
+ * It never re-throws and is fully independent of `getPageByPath`.
+ *
+ * T-03 MANUAL: enable public GraphQL read for this singleType in Strapi Admin
+ * → Settings → Roles → Public → global-theme → enable `find`. Without it this
+ * call resolves to `null` (handled gracefully) and the site uses fallbacks.
+ *
+ * @returns The palette (fields may be null) or `null` if the request fails.
+ */
+export async function getGlobalTheme(): Promise<GlobalTheme | null> {
+  try {
+    const data = await gql<GlobalThemeResponse>(GLOBAL_THEME_QUERY, undefined, { tags: ['routes'] });
+    return data.globalTheme;
+  } catch (err) {
+    console.error("[strapi] getGlobalTheme() failed:", err);
+    return null;
+  }
 }

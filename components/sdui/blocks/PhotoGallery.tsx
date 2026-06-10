@@ -2,18 +2,18 @@ import Image from "next/image";
 import type { PhotoGalleryProps } from "@/types/blocks";
 import { mediaUrl, mediaAlt } from "@/lib/media";
 
+const COLS_MAP: Record<string, string> = {
+  col_2: "columns-2",
+  col_3: "columns-3",
+  col_4: "columns-4",
+};
+
 export default function PhotoGallery({ title, subtitle, images, photo_columns }: PhotoGalleryProps) {
-  // Mapa de columnas masonry
-  const colsMap: Record<string, string> = {
-    col_2: "columns-2",
-    col_3: "columns-3",
-    col_4: "columns-4",
-  };
-  const colsClass = colsMap[photo_columns] ?? "columns-3";
+  const colsClass = COLS_MAP[photo_columns] ?? "columns-3";
 
   return (
     <section
-      className="w-full border-t-4 bg-white py-16"
+      className="w-full border-t-4 bg-[var(--color-foues-surface)] py-16"
       style={{ borderTopColor: "var(--color-foues-navy)" }}
     >
       <div className="max-w-[1920px] mx-auto px-6">
@@ -35,7 +35,7 @@ export default function PhotoGallery({ title, subtitle, images, photo_columns }:
               </>
             )}
             {subtitle && (
-              <p className="mt-4 max-w-3xl text-base text-gray-600">{subtitle}</p>
+              <p className="mt-4 max-w-3xl text-base text-[var(--color-foues-text-secondary)]">{subtitle}</p>
             )}
           </div>
         )}
@@ -48,7 +48,7 @@ export default function PhotoGallery({ title, subtitle, images, photo_columns }:
               return (
                 <div
                   key={img.documentId ?? i}
-                  className="mb-5 break-inside-avoid overflow-hidden shadow-md bg-gray-200"
+                  className="mb-5 break-inside-avoid overflow-hidden shadow-md bg-[var(--color-foues-surface-sunken)]"
                 >
                   <Image
                     src={url}

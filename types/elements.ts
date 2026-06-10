@@ -70,3 +70,22 @@ export interface QuickLinkItem {
   icon: string | null;
   description: string | null;
 }
+
+/** elements.list-item */
+export interface ListItem {
+  text: string;
+}
+
+/** elements.date-entry */
+export interface DateEntry {
+  start_date: string;      // ISO "YYYY-MM-DD"
+  end_date: string | null; // ISO "YYYY-MM-DD" or null
+  label: string;
+  description: string | null;
+}
+
+/** elements.schedule-entry */
+export interface ScheduleEntryElement {
+  day_range: string;
+  time_range: string;
+}

@@ -13,8 +13,9 @@
  *   5. BlockRenderer dispatches each block to its registered stub component.
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getPageByPath } from "@/lib/strapi";
+import { auth } from "@/lib/auth";
 import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
 import { FullWidthLayout } from "@/components/sdui/layouts/FullWidthLayout";
 import { BlockRenderer } from "@/components/sdui/BlockRenderer";
@@ -27,12 +28,21 @@ export default async function Page(props: {
 
   const data = await getPageByPath(path);
 
-  if (!data?.route?.page) {
+  if (!data || !data.route || !data.route.page) {
     notFound();
   }
 
-  const { route, navbar, footer } = data;
-  const { layout, content } = route.page;
+  // Spec B — "Server Component Visibility Enforcement"
+  // Proxy does an O(1) cookie check; this is the authoritative CMS-driven gate.
+  // null/undefined visibility is treated as 'public' (defaulted in strapi.ts mapper).
+  const visibility = data.route.visibility ?? 'public';
+  if (visibility === 'requires-login' && !(await auth())) {
+    redirect('/login');
+  }
+
+  const page = data.route.page;
+  const { layout, content } = page;
+  const { navbar, footer } = data;
 
   if (layout === "full-width") {
     return (

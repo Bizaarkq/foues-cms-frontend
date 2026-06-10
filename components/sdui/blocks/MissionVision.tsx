@@ -8,7 +8,7 @@ export default function MissionVision({
   vision_text,
 }: MissionVisionProps) {
   return (
-    <section className="w-full py-16" style={{ backgroundColor: "#f3edf9" }}>
+    <section className="w-full py-16" style={{ backgroundColor: "color-mix(in srgb, var(--color-foues-accent) 12%, var(--color-foues-surface))" }}>
       <div className="max-w-[1920px] mx-auto px-6">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 max-w-4xl mx-auto">
           {/* Misión */}
@@ -25,7 +25,7 @@ export default function MissionVision({
             >
               {mission_title}
             </h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{mission_text}</p>
+            <p className="text-sm text-[var(--color-foues-text-muted)] leading-relaxed">{mission_text}</p>
           </div>
 
           {/* Visión */}
@@ -42,7 +42,7 @@ export default function MissionVision({
             >
               {vision_title}
             </h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{vision_text}</p>
+            <p className="text-sm text-[var(--color-foues-text-muted)] leading-relaxed">{vision_text}</p>
           </div>
         </div>
       </div>

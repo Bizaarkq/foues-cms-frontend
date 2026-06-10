@@ -4,7 +4,7 @@ export default function Timeline({ title, items }: TimelineProps) {
   if (items.length === 0) return null;
 
   return (
-    <section className="w-full py-16 bg-white">
+    <section className="w-full py-16 bg-[var(--color-foues-surface)]">
       <div className="max-w-[1920px] mx-auto px-6">
         {title && (
           <div className="mb-12">
@@ -61,7 +61,7 @@ export default function Timeline({ title, items }: TimelineProps) {
                     {item.title}
                   </p>
                   {item.description && (
-                    <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+                    <p className="mt-1 text-xs text-[var(--color-foues-text-muted)] leading-relaxed">
                       {item.description}
                     </p>
                   )}

@@ -8,24 +8,35 @@
  */
 
 import type { StrapiMedia, StrapiRichText } from "./strapi";
+import type { FormDefinition } from "./forms";
 import type {
   ButtonElement,
   CardElement,
   TimelineItemElement,
   StepElement,
   ScheduleItemElement,
+  ScheduleEntryElement,
   QuickLinkItem,
+  ListItem,
+  DateEntry,
 } from "./elements";
 
 // ---------------------------------------------------------------------------
 // Shared enum types
 // ---------------------------------------------------------------------------
 
+/** Gradient overlay option for HeroPage. */
+export type GradientOption = "none" | "primary" | "secondary";
+
+/** Display mode for KeyDates block. */
+export type KeyDatesDisplayMode = "calendar" | "list";
+
 /** columns enum used in photo-gallery (col_2 | col_3 | col_4). */
 export type PhotoGalleryColumns = "col_2" | "col_3" | "col_4";
 
 /** columns enum used in content-grid (col_1 | col_2 | col_3 | col_4). */
 export type ContentGridColumns = "col_1" | "col_2" | "col_3" | "col_4";
+
 
 /** card_style enum for content-grid. */
 export type CardStyle = "default" | "compact" | "featured" | "horizontal";
@@ -48,6 +59,7 @@ export interface HeroPageProps {
   title: string | null;
   subtitle: string | null;
   backgroundImage: StrapiMedia | null;
+  gradient: GradientOption | null;
 }
 
 export interface ContentGridProps {
@@ -67,6 +79,8 @@ export interface PhotoGalleryProps {
 
 export interface QuickLinksProps {
   title: string | null;
+  /** 0 = auto-responsive, 1–12 = fixed column count */
+  ql_columns: number | null;
   links: QuickLinkItem[];
 }
 
@@ -130,6 +144,75 @@ export interface StaffSectionProps {
   unidad: OrganizationalUnitItem | null;
 }
 
+export interface BulletListProps {
+  title: string | null;
+  items: ListItem[];
+  cta: ButtonElement | null;
+}
+
+export interface KeyDatesProps {
+  title: string | null;
+  display_mode: KeyDatesDisplayMode;
+  items: DateEntry[];
+}
+
+export interface InfoCardProps {
+  title: string | null;
+  body: string | null;
+  cta: ButtonElement | null;
+}
+
+export interface ClinicScheduleProps {
+  clinic_name: string;
+  hours: ScheduleEntryElement[];
+  schedule_text: string | null;
+}
+
+export interface IconStripProps {
+  title: string | null;
+  links: QuickLinkItem[];
+}
+
+export interface MapScheduleProps {
+  clinic_name: string;
+  address: string | null;
+  embed_url: string;
+  hours: ScheduleEntryElement[];
+  schedule_text: string | null;
+}
+
+export interface FormBlockProps {
+  title: string | null;
+  submit_label: string | null;
+  form: FormDefinition | null;
+}
+
+// ---------------------------------------------------------------------------
+// Nested SDUI types (blocks.section)
+// ---------------------------------------------------------------------------
+
+/**
+ * The normalized content of a block-group (post-normalizeBlocks).
+ * Each group is a named container of flat SDUIBlocks.
+ */
+export interface BlockGroupContent {
+  id: string;         // documentId from Strapi
+  name: string | null;
+  group_columns: number | null;
+  blocks: SDUIBlock[]; // recursive: already-normalized blocks at this level
+}
+
+/**
+ * Props for the blocks.section component — top-level container in page.content.
+ * children: block-groups populated via oneToMany relation.
+ * deep_children: escape hatch for >2 nesting levels; untyped by design (ADR-4).
+ */
+export interface SectionProps {
+  name: string | null;
+  section_columns: number | null;
+  children: BlockGroupContent[];
+}
+
 // ---------------------------------------------------------------------------
 // Discriminated union — REQ-T03
 // ---------------------------------------------------------------------------
@@ -155,4 +238,12 @@ export type SDUIBlock =
   | ({ __component: "blocks.calendar" } & CalendarProps)
   | ({ __component: "blocks.map" } & MapProps)
   | ({ __component: "blocks.staff-section" } & StaffSectionProps)
+  | ({ __component: "blocks.bullet-list" } & BulletListProps)
+  | ({ __component: "blocks.key-dates" } & KeyDatesProps)
+  | ({ __component: "blocks.info-card" } & InfoCardProps)
+  | ({ __component: "blocks.clinic-schedule" } & ClinicScheduleProps)
+  | ({ __component: "blocks.icon-strip" } & IconStripProps)
+  | ({ __component: "blocks.map-schedule" } & MapScheduleProps)
+  | ({ __component: "blocks.section" } & SectionProps) // nested SDUI container (ADR-1)
+  | ({ __component: "blocks.form" } & FormBlockProps)
   | { __component: string }; // forward-compat fallback for unknown blocks

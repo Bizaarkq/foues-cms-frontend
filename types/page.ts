@@ -23,6 +23,8 @@ export interface RouteNavItem {
   type: RouteType;
   order: number;
   slug: string | null;
+  active: boolean;
+  visibility: 'public' | 'requires-login';
   children: RouteNavItem[];
 }
 
@@ -48,6 +50,7 @@ export interface RouteData {
   label: string | null;
   type: RouteType;
   slug: string | null;
+  visibility: 'public' | 'requires-login';
   page: PageData | null;
 }
 
