@@ -1,84 +1,83 @@
 # =============================================================================
-# Stage 1: base — Node + pnpm setup compartido por todos los stages
+# Stage 1: base -- Node + pnpm setup shared by all stages
 # =============================================================================
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
-# Instalar pnpm globalmente vía corepack (sin necesidad de npm install -g)
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
 WORKDIR /app
 
 
 # =============================================================================
-# Stage 2: deps — Instalar SÓLO dependencias de producción y desarrollo
-#               (aprovecha la caché de Docker si package.json / lockfile no cambia)
+# Stage 2: deps -- Install dependencies only
+#               (leverages Docker layer cache if lockfile unchanged)
 # =============================================================================
 FROM base AS deps
 
-# Copiar sólo los archivos de manifiesto para aprovechar la caché de capas
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# Instalar todas las dependencias (dev incluidas, se necesitan para el build)
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-frontend-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
 
 
 # =============================================================================
-# Stage 3: builder — Compilar la aplicación Next.js
+# Stage 3: builder -- Build the Next.js application
 # =============================================================================
 FROM base AS builder
 
 WORKDIR /app
 
-# Copiar node_modules desde el stage deps
 COPY --from=deps /app/node_modules ./node_modules
-
-# Copiar el resto del código fuente
 COPY . .
 
-# Variables de entorno de build-time (pueden sobreescribirse con --build-arg)
-# NEXT_PUBLIC_* deben declararse aquí si el build las necesita en tiempo de compilación
-ARG NEXT_PUBLIC_STRAPI_URL=http://strapi:1337
-ENV NEXT_PUBLIC_STRAPI_URL=${NEXT_PUBLIC_STRAPI_URL}
+# Build-time env vars required by lib/env.ts (imported from next.config.ts).
+# ARG alone is NOT enough -- env.ts reads process.env at module load,
+# so each var must also be set as ENV before `pnpm build`.
+ARG STRAPI_URL
+ENV STRAPI_URL=$STRAPI_URL
 
-# Deshabilitar telemetría de Next.js durante el build
+ARG STRAPI_API_TOKEN
+ENV STRAPI_API_TOKEN=$STRAPI_API_TOKEN
+
+ARG FORM_SUBMIT_TOKEN
+ENV FORM_SUBMIT_TOKEN=$FORM_SUBMIT_TOKEN
+
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Activar el output "standalone" para una imagen final mínima.
-# Si ya está configurado en next.config.ts, esta variable lo activa igual.
-ENV NEXT_OUTPUT=standalone
-
-# Build de producción
-# next.config.ts debe tener: output: 'standalone'
 RUN pnpm build
 
 
 # =============================================================================
-# Stage 4: runner — Imagen final mínima (sólo lo necesario para ejecutar)
+# Stage 4: runner -- Minimal production image
 # =============================================================================
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Seguridad: ejecutar como usuario no-root
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser  --system --uid 1001 nextjs
-
-# Variables de entorno de runtime
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Copiar los archivos públicos estáticos
-COPY --from=builder /app/public ./public
+# Re-declare ARGs + ENVs for runtime SSR (ARGs do NOT cross stage boundaries)
+ARG STRAPI_URL
+ENV STRAPI_URL=$STRAPI_URL
 
-# Copiar el output standalone (incluye el servidor y dependencias mínimas)
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+ARG STRAPI_API_TOKEN
+ENV STRAPI_API_TOKEN=$STRAPI_API_TOKEN
 
-USER nextjs
+ARG FORM_SUBMIT_TOKEN
+ENV FORM_SUBMIT_TOKEN=$FORM_SUBMIT_TOKEN
+
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+
+USER node
 
 EXPOSE 3000
 
-# El servidor de producción standalone de Next.js
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/ || exit 1
+
 CMD ["node", "server.js"]

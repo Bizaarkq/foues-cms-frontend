@@ -13,6 +13,7 @@ import { env, isDev } from "./lib/env";
  */
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   images: {
     unoptimized: isDev,
     remotePatterns: [
