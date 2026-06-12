@@ -21,6 +21,11 @@ const GOOGLE_CLIENT_ID = required("GOOGLE_CLIENT_ID", process.env.GOOGLE_CLIENT_
 const GOOGLE_CLIENT_SECRET = required("GOOGLE_CLIENT_SECRET", process.env.GOOGLE_CLIENT_SECRET);
 const REVALIDATE_SECRET = required("REVALIDATE_SECRET", process.env.REVALIDATE_SECRET);
 
+// Optional — only consumed by /api/magazine-track. Falls back to empty string so
+// that a missing var does not crash the server on startup. The route handler
+// returns 401 when this is empty, keeping the rest of the app functional.
+const MAGAZINE_TRACK_TOKEN = process.env.MAGAZINE_TRACK_TOKEN ?? "";
+
 const parsed = new URL(STRAPI_URL);
 const protocol = parsed.protocol.replace(":", "") as "http" | "https";
 const hostname = parsed.hostname;
@@ -44,4 +49,5 @@ export const env = {
     googleSecret: GOOGLE_CLIENT_SECRET,
   },
   revalidateSecret: REVALIDATE_SECRET,
+  magazineTrackToken: MAGAZINE_TRACK_TOKEN,
 } as const;
