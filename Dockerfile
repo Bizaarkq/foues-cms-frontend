@@ -42,6 +42,23 @@ ENV STRAPI_API_TOKEN=$STRAPI_API_TOKEN
 ARG FORM_SUBMIT_TOKEN
 ENV FORM_SUBMIT_TOKEN=$FORM_SUBMIT_TOKEN
 
+# Runtime-only vars: lib/env.ts validates them eagerly at module load,
+# which triggers during `next build` when route handlers are imported.
+# Placeholder defaults let the build succeed without baking real secrets
+# into the image — real values are injected at runtime via compose.
+ARG AUTH_SECRET=build-placeholder
+ENV AUTH_SECRET=$AUTH_SECRET
+ARG AUTH_URL=http://localhost:3000
+ENV AUTH_URL=$AUTH_URL
+ARG GOOGLE_CLIENT_ID=build-placeholder
+ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+ARG GOOGLE_CLIENT_SECRET=build-placeholder
+ENV GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+ARG REVALIDATE_SECRET=build-placeholder
+ENV REVALIDATE_SECRET=$REVALIDATE_SECRET
+ARG MAGAZINE_TRACK_TOKEN=build-placeholder
+ENV MAGAZINE_TRACK_TOKEN=$MAGAZINE_TRACK_TOKEN
+
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN pnpm build
