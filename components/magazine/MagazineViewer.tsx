@@ -27,7 +27,7 @@ import { FlipbookClient } from "./FlipbookClient";
 
 function resolveUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
-  return `${env.strapi.url}${url.startsWith("/") ? "" : "/"}${url}`;
+  return `${env.strapi.publicUrl}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
 // ---------------------------------------------------------------------------

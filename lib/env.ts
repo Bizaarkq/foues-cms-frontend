@@ -13,6 +13,7 @@ function required(name: string, value: string | undefined): string {
 }
 
 const STRAPI_URL = required("STRAPI_URL", process.env.STRAPI_URL);
+const STRAPI_PUBLIC_URL = process.env.STRAPI_PUBLIC_URL || STRAPI_URL;
 const STRAPI_API_TOKEN = required("STRAPI_API_TOKEN", process.env.STRAPI_API_TOKEN);
 const FORM_SUBMIT_TOKEN = required("FORM_SUBMIT_TOKEN", process.env.FORM_SUBMIT_TOKEN);
 const AUTH_SECRET = required("AUTH_SECRET", process.env.AUTH_SECRET);
@@ -33,6 +34,7 @@ export const isDev = process.env.NODE_ENV === "development";
 export const env = {
   strapi: {
     url: STRAPI_URL,
+    publicUrl: STRAPI_PUBLIC_URL,
     token: STRAPI_API_TOKEN,
     formSubmitToken: FORM_SUBMIT_TOKEN,
     protocol,

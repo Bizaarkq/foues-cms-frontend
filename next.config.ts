@@ -5,28 +5,33 @@ import type { NextConfig } from "next";
  * here because it validates all runtime vars (AUTH_SECRET, GOOGLE_*, etc.) eagerly
  * and those are unavailable during `docker build`. Only STRAPI_URL is a build arg.
  *
- * REQ-CFG-1: remotePatterns derived from STRAPI_URL directly.
+ * REQ-CFG-1: remotePatterns derived from STRAPI_URL (internal) and STRAPI_PUBLIC_URL
+ * (browser-facing). Both are needed: next/image fetches from the internal URL
+ * server-side, while media URLs sent to the client use the public URL.
  * unoptimized in dev: Next.js 15+ blocks private IPs in the image optimizer.
  */
+function parseRemotePattern(url: string) {
+  const parsed = new URL(url);
+  const protocol = parsed.protocol.replace(":", "") as "http" | "https";
+  const hostname = parsed.hostname;
+  const port = parsed.port || (protocol === "https" ? "443" : "80");
+  return { protocol, hostname, port, pathname: "/uploads/**" as const };
+}
+
 const strapiUrl = process.env.STRAPI_URL ?? "http://localhost:1337";
-const parsed = new URL(strapiUrl);
-const protocol = parsed.protocol.replace(":", "") as "http" | "https";
-const hostname = parsed.hostname;
-const port = parsed.port || (protocol === "https" ? "443" : "80");
+const strapiPublicUrl = process.env.STRAPI_PUBLIC_URL ?? strapiUrl;
 const isDev = process.env.NODE_ENV === "development";
+
+const remotePatterns = [parseRemotePattern(strapiUrl)];
+if (strapiPublicUrl !== strapiUrl) {
+  remotePatterns.push(parseRemotePattern(strapiPublicUrl));
+}
 
 const nextConfig: NextConfig = {
   output: "standalone",
   images: {
     unoptimized: isDev,
-    remotePatterns: [
-      {
-        protocol,
-        hostname,
-        port,
-        pathname: "/uploads/**",
-      },
-    ],
+    remotePatterns,
   },
 };
 

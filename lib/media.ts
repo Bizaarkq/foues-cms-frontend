@@ -5,7 +5,7 @@ export function mediaUrl(media: StrapiMedia | null): string | null {
   if (!media) return null;
   const u = media.url;
   if (/^https?:\/\//i.test(u)) return u;
-  return `${env.strapi.url}${u.startsWith("/") ? "" : "/"}${u}`;
+  return `${env.strapi.publicUrl}${u.startsWith("/") ? "" : "/"}${u}`;
 }
 
 export function mediaAlt(media: StrapiMedia | null, fallback: string = ""): string {
