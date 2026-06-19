@@ -1,16 +1,19 @@
 import type { NextConfig } from "next";
-import { env, isDev } from "./lib/env";
 
 /**
- * next.config.ts
+ * next.config.ts runs at build time — lib/env.ts is intentionally NOT imported
+ * here because it validates all runtime vars (AUTH_SECRET, GOOGLE_*, etc.) eagerly
+ * and those are unavailable during `docker build`. Only STRAPI_URL is a build arg.
  *
- * REQ-ENV-4: process.env únicamente en lib/env.ts.
- * REQ-CFG-1: remotePatterns dinámico desde env.strapi.*.
- *
- * unoptimized en dev: Next.js 15+ bloquea IPs privadas (localhost → 127.0.0.1)
- * por seguridad SSRF en el optimizador de imágenes. En prod el optimizador
- * corre contra el host real de Strapi (IP pública, sin restricción).
+ * REQ-CFG-1: remotePatterns derived from STRAPI_URL directly.
+ * unoptimized in dev: Next.js 15+ blocks private IPs in the image optimizer.
  */
+const strapiUrl = process.env.STRAPI_URL ?? "http://localhost:1337";
+const parsed = new URL(strapiUrl);
+const protocol = parsed.protocol.replace(":", "") as "http" | "https";
+const hostname = parsed.hostname;
+const port = parsed.port || (protocol === "https" ? "443" : "80");
+const isDev = process.env.NODE_ENV === "development";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -18,9 +21,9 @@ const nextConfig: NextConfig = {
     unoptimized: isDev,
     remotePatterns: [
       {
-        protocol: env.strapi.protocol,
-        hostname: env.strapi.hostname,
-        port: env.strapi.port,
+        protocol,
+        hostname,
+        port,
         pathname: "/uploads/**",
       },
     ],
