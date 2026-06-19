@@ -66,14 +66,7 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  // --- Guard: token not configured ---
   const token = env.magazineTrackToken;
-  if (!token) {
-    // Slice 5 hasn't been deployed yet — silently accept without forwarding
-    // so that client-side tracking calls don't surface errors to the reader.
-    console.warn("[magazine-track] MAGAZINE_TRACK_TOKEN is not set; skipping proxy");
-    return Response.json({ ok: true, forwarded: false });
-  }
 
   // --- Forward to Strapi ---
   const strapiUrl = `${env.strapi.url}/api/magazine-issues/${encodeURIComponent(documentId)}/track`;
