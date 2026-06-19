@@ -188,6 +188,18 @@ export interface FormBlockProps {
 }
 
 // ---------------------------------------------------------------------------
+// Magazine archive block
+// ---------------------------------------------------------------------------
+
+/**
+ * MagazineArchiveProps — self-fetching block.
+ * No data fields come from the page query; the component calls
+ * getAllReadyMagazineIssues() directly as an async RSC.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface MagazineArchiveProps {}
+
+// ---------------------------------------------------------------------------
 // Nested SDUI types (blocks.section)
 // ---------------------------------------------------------------------------
 
@@ -246,4 +258,5 @@ export type SDUIBlock =
   | ({ __component: "blocks.map-schedule" } & MapScheduleProps)
   | ({ __component: "blocks.section" } & SectionProps) // nested SDUI container (ADR-1)
   | ({ __component: "blocks.form" } & FormBlockProps)
+  | ({ __component: "blocks.magazine-archive" } & MagazineArchiveProps)
   | { __component: string }; // forward-compat fallback for unknown blocks

@@ -23,6 +23,7 @@
 import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, FooterColumn } from "@/types/page";
 import type { SDUIBlock, BlockGroupContent } from "@/types/blocks";
 import type { ButtonVariant } from "@/types/elements";
+import type { StrapiMedia } from "@/types/strapi";
 import { env } from "./env";
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,7 @@ const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksMapSchedule: "blocks.map-schedule",
   ComponentBlocksSection: "blocks.section",
   ComponentBlocksForm: "blocks.form",
+  ComponentBlocksMagazineArchive: "blocks.magazine-archive",
 };
 
 const FOOTER_TYPENAME_TO_COMPONENT: Record<string, string> = {
@@ -346,6 +348,9 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
         max_length
       }
     }
+  }
+  ... on ComponentBlocksMagazineArchive {
+    __typename
   }
 `;
 
@@ -723,5 +728,146 @@ export async function getGlobalTheme(): Promise<GlobalTheme | null> {
   } catch (err) {
     console.error("[strapi] getGlobalTheme() failed:", err);
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Magazine issues
+// ---------------------------------------------------------------------------
+
+/** A single converted page image from Strapi. */
+export interface MagazineIssuePage {
+  url: string;
+  width: number | null;
+  height: number | null;
+}
+
+/** Normalised magazine issue — used by the viewer and archive grid. */
+export interface MagazineIssue {
+  documentId: string;
+  slug: string;
+  title: string;
+  number: number | null;
+  date: string | null;
+  description: string | null;
+  cover: StrapiMedia | null;
+  pdf: { url: string } | null;
+  pages: MagazineIssuePage[];
+  conversionStatus: "processing" | "ready" | "failed";
+  publishedAt: string | null;
+}
+
+// Raw response shapes (pre-normalisation, straight from GraphQL)
+interface RawMagazineIssue {
+  documentId: string;
+  slug: string;
+  title: string;
+  number: number | null;
+  date: string | null;
+  description: string | null;
+  cover: StrapiMedia | null;
+  pdf: { url: string } | null;
+  pages: MagazineIssuePage[];
+  conversionStatus: "processing" | "ready" | "failed";
+  publishedAt: string | null;
+}
+
+interface MagazineIssueBySlugResponse {
+  magazineIssues: RawMagazineIssue[];
+}
+
+interface AllMagazineIssuesResponse {
+  magazineIssues: RawMagazineIssue[];
+}
+
+const MAGAZINE_ISSUE_BY_SLUG_QUERY = /* GraphQL */ `
+  query MagazineIssueBySlug($slug: String!) {
+    magazineIssues(
+      filters: { slug: { eq: $slug }, conversionStatus: { eq: "ready" } }
+      pagination: { limit: 1 }
+    ) {
+      documentId
+      slug
+      title
+      number
+      date
+      description
+      pdf { url }
+      pages { url width height }
+      conversionStatus
+      publishedAt
+    }
+  }
+`;
+
+const ALL_READY_MAGAZINE_ISSUES_QUERY = /* GraphQL */ `
+  query AllReadyMagazineIssues {
+    magazineIssues(
+      filters: { conversionStatus: { eq: "ready" } }
+      sort: "date:desc"
+      pagination: { limit: 100 }
+    ) {
+      documentId
+      slug
+      title
+      number
+      date
+      description
+      cover {
+        documentId
+        url
+        alternativeText
+        width
+        height
+        mime
+        name
+      }
+      conversionStatus
+      publishedAt
+    }
+  }
+`;
+
+/**
+ * getMagazineIssueBySlug — fetch a single ready magazine issue by its slug.
+ *
+ * Returns null when the slug does not exist, the issue is not yet ready,
+ * or the Strapi request fails.
+ *
+ * @param slug - The issue slug (e.g. "edicion-1")
+ */
+export async function getMagazineIssueBySlug(
+  slug: string
+): Promise<MagazineIssue | null> {
+  try {
+    const data = await gql<MagazineIssueBySlugResponse>(
+      MAGAZINE_ISSUE_BY_SLUG_QUERY,
+      { slug },
+      { tags: [`magazine-issue:${slug}`, "magazine-issues"] }
+    );
+    return data.magazineIssues[0] ?? null;
+  } catch (err) {
+    console.error(`[strapi] getMagazineIssueBySlug("${slug}") failed:`, err);
+    return null;
+  }
+}
+
+/**
+ * getAllReadyMagazineIssues — fetch all published + ready magazine issues for
+ * the archive grid, sorted newest-first. Capped at 100 items.
+ *
+ * Returns an empty array on failure (component renders the empty state).
+ */
+export async function getAllReadyMagazineIssues(): Promise<MagazineIssue[]> {
+  try {
+    const data = await gql<AllMagazineIssuesResponse>(
+      ALL_READY_MAGAZINE_ISSUES_QUERY,
+      undefined,
+      { tags: ["magazine-issues"] }
+    );
+    return data.magazineIssues;
+  } catch (err) {
+    console.error("[strapi] getAllReadyMagazineIssues() failed:", err);
+    return [];
   }
 }

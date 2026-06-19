@@ -32,6 +32,7 @@ import IconStrip from "./blocks/IconStrip";
 import MapSchedule from "./blocks/MapSchedule";
 import Section from "./blocks/Section";
 import DynamicFormBlock from "./blocks/DynamicFormBlock";
+import MagazineArchive from "./blocks/MagazineArchive";
 
 export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.hero-landing": HeroLanding,
@@ -55,4 +56,5 @@ export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.map-schedule": MapSchedule,
   "blocks.section": Section,
   "blocks.form": DynamicFormBlock,
+  "blocks.magazine-archive": MagazineArchive,
 };

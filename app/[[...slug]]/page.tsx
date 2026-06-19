@@ -19,6 +19,12 @@ import { auth } from "@/lib/auth";
 import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
 import { FullWidthLayout } from "@/components/sdui/layouts/FullWidthLayout";
 import { BlockRenderer } from "@/components/sdui/BlockRenderer";
+import { MagazineViewer } from "@/components/magazine/MagazineViewer";
+
+// Matches /quienes-somos/revista/{slug} — one path segment, no trailing slash.
+// Routed before the generic notFound() so that magazine edition URLs that have
+// no Strapi route record are handled by MagazineViewer instead of 404ing.
+const MAGAZINE_VIEWER_RE = /^\/quienes-somos\/revista\/([^/]+)$/;
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
@@ -28,7 +34,24 @@ export default async function Page(props: {
 
   const data = await getPageByPath(path);
 
-  if (!data || !data.route || !data.route.page) {
+  // Hard failure: Strapi request returned nothing at all
+  if (!data) {
+    notFound();
+  }
+
+  // Magazine viewer route — checked before generic 404 so that edition URLs
+  // that have no Strapi route record are handled by the viewer, not by 404.
+  if (!data.route || !data.route.page) {
+    const magazineMatch = MAGAZINE_VIEWER_RE.exec(path);
+    if (magazineMatch) {
+      return (
+        <MagazineViewer
+          slug={magazineMatch[1]}
+          navbar={data.navbar}
+          footer={data.footer}
+        />
+      );
+    }
     notFound();
   }
 
