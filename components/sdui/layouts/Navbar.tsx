@@ -14,6 +14,23 @@ import { ChevronDown, Monitor, LogIn, LogOut } from "lucide-react";
 import type { NavbarData, RouteNavItem } from "@/types/page";
 import { auth, signOut } from "@/lib/auth";
 
+/**
+ * Drops requires-login items for anonymous visitors, recursively.
+ * Removing a parent removes its whole subtree — children of a hidden
+ * group are never shown, regardless of their own visibility.
+ */
+function filterByVisibility(
+  items: RouteNavItem[],
+  isLoggedIn: boolean
+): RouteNavItem[] {
+  return items
+    .filter((item) => isLoggedIn || item.visibility !== "requires-login")
+    .map((item) => ({
+      ...item,
+      children: filterByVisibility(item.children, isLoggedIn),
+    }));
+}
+
 function NavItem({ item }: { item: RouteNavItem }) {
   const hasChildren = item.children.length > 0;
   const label = item.label ?? item.slug ?? item.path;
@@ -124,6 +141,7 @@ function NavItem({ item }: { item: RouteNavItem }) {
 export async function Navbar({ navbar }: { navbar: NavbarData }) {
   const session = await auth();
   const userName = session?.user?.name?.split(' ')[0] ?? null;
+  const visibleItems = filterByVisibility(navbar.items, session != null);
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -191,7 +209,7 @@ export async function Navbar({ navbar }: { navbar: NavbarData }) {
 
           {/* Nav items */}
           <ul className="hidden md:flex items-center gap-1">
-            {navbar.items
+            {visibleItems
               .flatMap((root) => root.children)
               .sort((a, b) => a.order - b.order)
               .map((item) => (
