@@ -499,7 +499,7 @@ interface RawRouteNode {
   type: 'page' | 'section' | 'header';
   order: number;
   active: boolean;
-  visibility?: 'public' | 'requires-login' | null;
+  visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
   children?: RawRouteNode[];
 }
 
@@ -516,7 +516,7 @@ interface PageByPathResponse {
     type: 'page' | 'section' | 'header';
     slug: string | null;
     active: boolean;
-    visibility?: 'public' | 'requires-login' | null;
+    visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
     parent: RawRouteParent | null;
     page: {
       documentId: string;
@@ -537,6 +537,20 @@ interface PageByPathResponse {
 // Nav tree mapper
 // ---------------------------------------------------------------------------
 
+/**
+ * GraphQL cannot represent hyphens in enum values, so Strapi serialises the
+ * `requires-login` enum as `requires_login`. Normalise back to the domain
+ * form here — every consumer (page gate, navbar filter) compares against
+ * 'requires-login'.
+ */
+function normalizeVisibility(
+  v: string | null | undefined
+): 'public' | 'requires-login' {
+  return v === 'requires_login' || v === 'requires-login'
+    ? 'requires-login'
+    : 'public';
+}
+
 function mapRouteNode(r: RawRouteNode): RouteNavItem {
   return {
     documentId: r.documentId,
@@ -546,7 +560,7 @@ function mapRouteNode(r: RawRouteNode): RouteNavItem {
     type: r.type,
     order: r.order,
     active: r.active,
-    visibility: r.visibility ?? 'public',
+    visibility: normalizeVisibility(r.visibility),
     children: (r.children ?? [])
       .filter((c) => c.active !== false)
       .map(mapRouteNode),
@@ -603,7 +617,7 @@ export async function getPageByPath(
         label: rawRoute.label,
         type: rawRoute.type,
         slug: rawRoute.slug,
-        visibility: rawRoute.visibility ?? 'public',
+        visibility: normalizeVisibility(rawRoute.visibility),
         page: rawRoute.page
           ? {
               documentId: rawRoute.page.documentId,
