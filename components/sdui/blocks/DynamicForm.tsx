@@ -2,7 +2,7 @@
 import { useForm, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useTransition, useState } from "react";
-import { buildZodSchema } from "@/lib/build-zod-schema";
+import { buildZodSchema, sanitizeFields } from "@/lib/build-zod-schema";
 import type { FormDefinition } from "@/types/forms";
 import type { SubmitFormResult } from "@/app/actions/submit-form";
 import { TextInput } from "./form-fields/TextInput";
@@ -48,7 +48,8 @@ interface Props {
 }
 
 export default function DynamicForm({ formDef, action }: Props) {
-  const schema = useMemo(() => buildZodSchema(formDef.fields), [formDef.fields]);
+  const fields = useMemo(() => sanitizeFields(formDef.fields), [formDef.fields]);
+  const schema = useMemo(() => buildZodSchema(fields), [fields]);
   const { register, handleSubmit, setError, formState: { errors } } = useForm<FieldValues>({
     resolver: zodResolver(schema),
   });
@@ -81,7 +82,7 @@ export default function DynamicForm({ formDef, action }: Props) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
       {formDef.title ? <h2 className="text-xl font-semibold">{formDef.title}</h2> : null}
-      {formDef.fields.map(field => renderField(field, register, errors))}
+      {fields.map(field => renderField(field, register, errors))}
       {status === "error" ? <p className="text-[var(--color-foues-state-error)] text-sm">{serverError}</p> : null}
       <button
         type="submit"

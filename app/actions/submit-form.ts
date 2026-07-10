@@ -1,7 +1,7 @@
 "use server";
 import { cache } from "react";
 import { env } from "@/lib/env";
-import { buildZodSchema } from "@/lib/build-zod-schema";
+import { buildZodSchema, sanitizeFields } from "@/lib/build-zod-schema";
 import type { FormFieldDef } from "@/types/forms";
 import { headers } from "next/headers";
 
@@ -43,7 +43,7 @@ export async function submitForm(input: { formId: string; data: unknown }): Prom
     if (!meta) return { ok: false, error: "Formulario no encontrado." };
     const { fields, title: formTitle } = meta;
 
-    const schema = buildZodSchema(fields);
+    const schema = buildZodSchema(sanitizeFields(fields));
     const parsed = schema.safeParse(input.data);
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
