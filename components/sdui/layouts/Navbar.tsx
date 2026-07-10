@@ -20,7 +20,7 @@ import { env } from "@/lib/env";
  * Removing a parent removes its whole subtree — children of a hidden
  * group are never shown, regardless of their own visibility.
  */
-function filterByVisibility(
+export function filterByVisibility(
   items: RouteNavItem[],
   isLoggedIn: boolean
 ): RouteNavItem[] {
@@ -90,7 +90,7 @@ function NavItem({ item }: { item: RouteNavItem }) {
 
       {/* Dropdown */}
       {hasChildren && (
-        <ul className="absolute left-0 top-full z-10 hidden min-w-56 flex-col rounded-md border border-[var(--color-foues-border)] bg-[var(--color-foues-surface-raised)] py-2 shadow-lg group-hover:flex">
+        <ul className="absolute left-0 top-full z-10 hidden min-w-56 flex-col rounded-md border border-[var(--color-foues-border)] bg-[var(--color-foues-surface-raised)] py-2 shadow-lg group-hover:flex group-focus-within:flex">
           {item.children.map((child) => {
             const childLabel = child.label ?? child.slug ?? child.path;
             return (

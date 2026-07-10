@@ -58,9 +58,26 @@ export interface RouteData {
 // Navbar & Footer
 // ---------------------------------------------------------------------------
 
+/** Item of the mobile bottom navigation bar (single type "mobile-navbar"). */
+export interface MobileNavItem {
+  label: string;
+  icon: string | null;
+  external_url: string | null;
+  route: {
+    path: string;
+    visibility: 'public' | 'requires-login';
+    active: boolean;
+    type: RouteType;
+    /** Whether the route has a page attached — a tap must always land on real content. */
+    hasPage: boolean;
+  } | null;
+}
+
 /** Navbar data — tree of route items ordered by route.order. */
 export interface NavbarData {
   items: RouteNavItem[];
+  /** Configurable shortcuts of the mobile bottom bar (max 3, CMS-governed). */
+  mobileNav: MobileNavItem[];
 }
 
 // ---------------------------------------------------------------------------
