@@ -20,7 +20,7 @@
  *   All TS types retain the "blocks.X" / "elements.X" discriminant format per design.
  */
 
-import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, FooterColumn } from "@/types/page";
+import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, MobileNavItem, FooterColumn } from "@/types/page";
 import type { SDUIBlock, BlockGroupContent } from "@/types/blocks";
 import type { ButtonVariant } from "@/types/elements";
 import type { StrapiMedia } from "@/types/strapi";
@@ -440,6 +440,32 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
           order
           active
           visibility
+          children(sort: "order:asc") {
+            documentId
+            path
+            label
+            slug
+            type
+            order
+            active
+            visibility
+          }
+        }
+      }
+    }
+    mobileNavbar {
+      items {
+        label
+        icon
+        external_url
+        route {
+          path
+          visibility
+          active
+          type
+          page {
+            documentId
+          }
         }
       }
     }
@@ -528,6 +554,20 @@ interface PageByPathResponse {
     } | null;
   }>;
   navTree: RawRouteNode[];
+  mobileNavbar: {
+    items: Array<{
+      label: string;
+      icon: string | null;
+      external_url: string | null;
+      route: {
+        path: string;
+        visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
+        active: boolean;
+        type: 'page' | 'section' | 'header';
+        page: { documentId: string } | null;
+      } | null;
+    }> | null;
+  } | null;
   footer: {
     copyright: string | null;
     bottom_links: Array<{ label: string; url: string | null; variant: ButtonVariant; icon: string | null }>;
@@ -632,10 +672,28 @@ export async function getPageByPath(
     : null;
 
   // Build navbar from root routes tree
+  const mobileNav: MobileNavItem[] = (data.mobileNavbar?.items ?? []).map(
+    (item) => ({
+      label: item.label,
+      icon: item.icon,
+      external_url: item.external_url,
+      route: item.route
+        ? {
+            path: item.route.path,
+            visibility: normalizeVisibility(item.route.visibility),
+            active: item.route.active,
+            type: item.route.type,
+            hasPage: item.route.page != null,
+          }
+        : null,
+    })
+  );
+
   const navbar: NavbarData = {
     items: data.navTree
       .filter((r) => r.active !== false)
       .map(mapRouteNode),
+    mobileNav,
   };
 
   return {

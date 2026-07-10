@@ -6,6 +6,7 @@
 import type { NavbarData, FooterData } from "@/types/page";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 interface DefaultLayoutProps {
   navbar: NavbarData;
@@ -21,6 +22,7 @@ export function DefaultLayout({ navbar, footer, children }: DefaultLayoutProps) 
         {children}
       </main>
       <Footer footer={footer} />
+      <MobileBottomNav navbar={navbar} />
     </>
   );
 }
