@@ -17,6 +17,20 @@ import { NextRequest, NextResponse } from 'next/server';
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_REQUESTS = 5;
 const timestamps = new Map<string, number[]>();
+let lastCleanup = 0;
+
+/** Drops IPs with no requests inside the window — otherwise the map grows for
+ *  as long as the process lives (one entry per distinct client IP ever seen). */
+function pruneStaleIps(windowStart: number): void {
+  for (const [ip, times] of timestamps) {
+    const alive = times.filter((t) => t > windowStart);
+    if (alive.length === 0) {
+      timestamps.delete(ip);
+    } else {
+      timestamps.set(ip, alive);
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Proxy function
@@ -35,6 +49,14 @@ export function proxy(request: NextRequest): NextResponse {
 
     const now = Date.now();
     const windowStart = now - RATE_WINDOW_MS;
+
+    // Amortised cleanup: at most once per window, O(ips) — keeps the map
+    // bounded by the number of IPs active in the last minute.
+    if (now - lastCleanup > RATE_WINDOW_MS) {
+      lastCleanup = now;
+      pruneStaleIps(windowStart);
+    }
+
     const reqs = (timestamps.get(ip) ?? []).filter((t) => t > windowStart);
 
     if (reqs.length >= RATE_MAX_REQUESTS) {

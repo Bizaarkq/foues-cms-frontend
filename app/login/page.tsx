@@ -59,7 +59,7 @@ export default async function LoginPage({
           className="text-sm text-center"
           style={{ color: 'var(--color-foues-text-secondary)' }}
         >
-          Sign in with your UES institutional account to continue.
+          Iniciá sesión con tu cuenta institucional UES para continuar.
         </p>
 
         {/* Domain restriction error */}
@@ -73,7 +73,7 @@ export default async function LoginPage({
             }}
             role="alert"
           >
-            Access denied. Only <strong>@ues.edu.sv</strong> accounts are allowed.
+            Acceso denegado. Solo se permiten cuentas <strong>@ues.edu.sv</strong>.
           </div>
         )}
 
@@ -88,7 +88,7 @@ export default async function LoginPage({
             }}
             role="alert"
           >
-            Sign-in failed. Please try again.
+            No se pudo iniciar sesión. Intentá de nuevo.
           </div>
         )}
 
@@ -134,7 +134,7 @@ export default async function LoginPage({
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Sign in with Google
+            Iniciar sesión con Google
           </button>
         </form>
 
@@ -142,7 +142,7 @@ export default async function LoginPage({
           className="text-xs text-center"
           style={{ color: 'var(--color-foues-text-faint)' }}
         >
-          Access restricted to @ues.edu.sv accounts.
+          Acceso restringido a cuentas @ues.edu.sv.
         </p>
       </div>
     </main>

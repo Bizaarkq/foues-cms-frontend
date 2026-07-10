@@ -24,6 +24,10 @@ const REVALIDATE_SECRET = required("REVALIDATE_SECRET", process.env.REVALIDATE_S
 
 const MAGAZINE_TRACK_TOKEN = required("MAGAZINE_TRACK_TOKEN", process.env.MAGAZINE_TRACK_TOKEN);
 
+// Opcional — URL del Campus Virtual en la barra superior del navbar.
+// Sin valor, el link no se renderiza.
+const CAMPUS_VIRTUAL_URL = process.env.CAMPUS_VIRTUAL_URL || null;
+
 const parsed = new URL(STRAPI_URL);
 const protocol = parsed.protocol.replace(":", "") as "http" | "https";
 const hostname = parsed.hostname;
@@ -49,4 +53,5 @@ export const env = {
   },
   revalidateSecret: REVALIDATE_SECRET,
   magazineTrackToken: MAGAZINE_TRACK_TOKEN,
+  campusVirtualUrl: CAMPUS_VIRTUAL_URL,
 } as const;

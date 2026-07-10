@@ -13,6 +13,7 @@ import Link from "next/link";
 import { ChevronDown, Monitor, LogIn, LogOut } from "lucide-react";
 import type { NavbarData, RouteNavItem } from "@/types/page";
 import { auth, signOut } from "@/lib/auth";
+import { env } from "@/lib/env";
 
 function NavItem({ item }: { item: RouteNavItem }) {
   const hasChildren = item.children.length > 0;
@@ -132,13 +133,17 @@ export async function Navbar({ navbar }: { navbar: NavbarData }) {
         className="flex h-9 items-center justify-end gap-6 px-6"
         style={{ backgroundColor: "var(--color-foues-accent)" }}
       >
-        <a
-          href="#"
-          className="flex items-center gap-1.5 text-sm text-white/90 hover:text-white transition-colors"
-        >
-          <Monitor className="h-4 w-4" />
-          <span>Campus Virtual</span>
-        </a>
+        {env.campusVirtualUrl && (
+          <a
+            href={env.campusVirtualUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-sm text-white/90 hover:text-white transition-colors"
+          >
+            <Monitor className="h-4 w-4" />
+            <span>Campus Virtual</span>
+          </a>
+        )}
         {session ? (
           <form
             action={async () => {
