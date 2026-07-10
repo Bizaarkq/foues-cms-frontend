@@ -83,6 +83,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       break;
     }
 
+    case 'publication':
+      // Publication data reaches both the archive fetches (magazine-issues
+      // tag) and the page query that populates the block's relation (pages).
+      tags.push('magazine-issues', 'pages', 'routes');
+      break;
+
     default:
       // footer, global-theme, block-group, staff, organizational-unit, form…
       // — all embedded in the unified page query, so every page must expire.

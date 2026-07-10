@@ -193,11 +193,23 @@ export interface FormBlockProps {
 
 /**
  * MagazineArchiveProps — self-fetching block.
- * No data fields come from the page query; the component calls
- * getAllReadyMagazineIssues() directly as an async RSC.
+ * `title` and `publications` come from the page query (block fields);
+ * the issues themselves are fetched by the component as an async RSC,
+ * filtered to the selected publications (none selected = all).
+ * `pagePath` is injected by BlockRenderer — edition links resolve to
+ * `${pagePath}/${slug}` so the block works wherever it is placed.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface MagazineArchiveProps {}
+export interface PublicationRef {
+  documentId: string;
+  name: string;
+  slug: string;
+}
+
+export interface MagazineArchiveProps {
+  title?: string | null;
+  publications?: PublicationRef[] | null;
+  pagePath?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Nested SDUI types (blocks.section)
@@ -223,6 +235,8 @@ export interface SectionProps {
   name: string | null;
   section_columns: number | null;
   children: BlockGroupContent[];
+  /** Injected by BlockRenderer; forwarded to nested renderers. */
+  pagePath?: string;
 }
 
 // ---------------------------------------------------------------------------

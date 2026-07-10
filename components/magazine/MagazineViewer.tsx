@@ -36,6 +36,13 @@ function resolveUrl(url: string): string {
 
 interface MagazineViewerProps {
   slug: string;
+  /** Path of the page holding the archive block — target of the back link. */
+  backHref: string;
+  /**
+   * Publications selected on the parent page's archive block(s).
+   * null = all publications allowed. An issue outside this set 404s.
+   */
+  allowedPublicationIds: string[] | null;
   navbar: NavbarData;
   footer: FooterData;
 }
@@ -46,6 +53,8 @@ interface MagazineViewerProps {
 
 export async function MagazineViewer({
   slug,
+  backHref,
+  allowedPublicationIds,
   navbar,
   footer,
 }: MagazineViewerProps) {
@@ -53,6 +62,16 @@ export async function MagazineViewer({
 
   // Guard: issue not found, not ready, or not published
   if (!issue || issue.conversionStatus !== "ready" || !issue.publishedAt) {
+    notFound();
+  }
+
+  // Guard: the issue must belong to a publication selected on the parent
+  // page's archive block(s); null = all publications allowed.
+  if (
+    allowedPublicationIds !== null &&
+    (!issue.publication ||
+      !allowedPublicationIds.includes(issue.publication.documentId))
+  ) {
     notFound();
   }
 
@@ -76,7 +95,7 @@ export async function MagazineViewer({
       <div className="w-full max-w-5xl mx-auto">
         {/* Back link */}
         <Link
-          href="/quienes-somos/revista"
+          href={backHref}
           className="inline-flex items-center gap-2 text-sm font-medium mb-6 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] rounded"
           style={{ color: "var(--color-foues-text-secondary)" }}
         >
