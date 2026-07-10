@@ -33,7 +33,6 @@ const getFormMeta = cache(async (formId: string): Promise<FormMeta | null> => {
 });
 
 export async function submitForm(input: { formId: string; data: unknown }): Promise<SubmitFormResult> {
-  console.log("[submitForm] called with formId:", input.formId);
   try {
     if (!input.formId || typeof input.formId !== "string") {
       return { ok: false, error: "Formulario inválido." };
