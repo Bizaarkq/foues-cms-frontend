@@ -67,9 +67,11 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 
 - `app/actions/submit-form.ts` — Server Action. **Never trusts client-passed field definitions**: re-fetches the form from Strapi (React `cache()`, 5 min revalidate) with `FORM_SUBMIT_TOKEN`, rebuilds the zod schema server-side (`lib/build-zod-schema.ts`), validates, then POSTs the submission with `form_id`, `form_title`, `data`, `submitted_at`, `ip_address`.
 
-## Magazine viewer (revista)
+## Magazine viewer (revista / publicaciones)
 
-- URLs `/quienes-somos/revista/{slug}` have **no Strapi route record** — the catch-all matches `MAGAZINE_VIEWER_RE` before 404ing and renders `MagazineViewer` (navbar/footer still come from `getPageByPath`).
+- **Multi-publication**: the `blocks.magazine-archive` block carries a `title` and a `publications` relation — each placement lists only the selected publications' editions (none selected = all). Issues belong to a `publication` (required relation in the CMS).
+- **Edition URLs are derived, never hardcoded**: `{path-of-the-page-holding-the-block}/{issue-slug}`. Edition URLs have **no Strapi route record** — when the catch-all fails to resolve a path with ≥2 segments, it resolves the parent path; if that page's content contains archive blocks (top-level or inside sections — `findMagazineArchiveBlocks` in `page.tsx`), the last segment is treated as an issue slug and `MagazineViewer` renders it, validating the issue belongs to the selected publications and inheriting the parent route's visibility gate. Back-link goes to the parent path.
+- `BlockRenderer` injects `pagePath` into every block (and `Section` forwards it) so `MagazineArchive` builds edition links relative to its page.
 - `MagazineViewer` (RSC) fetches the issue by slug (only `conversionStatus: "ready"` + published), resolves page image URLs to absolute against `STRAPI_PUBLIC_URL`, renders header + PDF download + `FlipbookClient`.
 - `FlipbookClient` — react-pageflip with windowed rendering (only ±2 pages around the current one get real `<img>`s). Fires a `visit` beacon on mount and a `depth` beacon (max page reached, %) on `pagehide` with `keepalive`.
 - Beacons POST to `app/api/magazine-track/route.ts`, which validates and forwards server-to-server to Strapi with `MAGAZINE_TRACK_TOKEN` (never exposed to the browser). Tracking failures return 200 — reader experience is never degraded by metrics.
@@ -95,4 +97,4 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 
 ## Known gaps
 
-Canonical tracker is GitHub Issues; highlights as of 2026-07: no mobile menu (Navbar is `hidden md:flex` with no hamburger — missing by design oversight, must be added); Navbar does not filter `requires-login` items for anonymous users nor hide children of hidden groups (it should); login page copy is in English. The magazine model currently assumes a SINGLE publication with N editions (archive title hardcoded, viewer path fixed) — multi-publication support (e.g. informes científicos, each with its own editions) is a pending redesign.
+Canonical tracker is GitHub Issues; highlights as of 2026-07: no mobile menu (Navbar is `hidden md:flex` with no hamburger — missing by design oversight, must be added). Gotcha to remember: Strapi enums with hyphens reach GraphQL with underscores (`requires-login` → `requires_login`) — normalize at the strapi.ts mapper boundary like `normalizeVisibility()` does, or use hyphen-free enum values in new CMS schemas.

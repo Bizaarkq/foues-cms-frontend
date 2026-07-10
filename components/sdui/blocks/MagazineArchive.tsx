@@ -1,11 +1,12 @@
 /**
  * MagazineArchive — self-fetching async RSC block.
  *
- * Placed in a page's content zone via the SDUI block registry. Fetches all
- * ready + published magazine issues and renders a responsive cover-card grid
- * linking to /quienes-somos/revista/{slug}.
+ * Placed in a page's content zone via the SDUI block registry. Fetches the
+ * ready + published issues of the publications selected on the block (none
+ * selected = all) and renders a responsive cover-card grid. Edition links
+ * are relative to the page holding the block: `${pagePath}/${slug}` — the
+ * catch-all resolves them back to MagazineViewer (no hardcoded prefix).
  *
- * Design note: this block has no data fields from the page query (leaf block).
  * getAllReadyMagazineIssues() is called here instead of in the page to keep
  * the archive concern encapsulated inside the block.
  */
@@ -17,8 +18,16 @@ import { getAllReadyMagazineIssues } from "@/lib/strapi";
 import { mediaUrl } from "@/lib/media";
 import type { MagazineArchiveProps } from "@/types/blocks";
 
-export default async function MagazineArchive(_props: MagazineArchiveProps) {
-  const issues = await getAllReadyMagazineIssues();
+export default async function MagazineArchive({
+  title,
+  publications,
+  pagePath,
+}: MagazineArchiveProps) {
+  const publicationIds = (publications ?? []).map((p) => p.documentId);
+  const issues = await getAllReadyMagazineIssues(
+    publicationIds.length > 0 ? publicationIds : undefined
+  );
+  const basePath = pagePath ?? "";
 
   return (
     <section className="w-full py-16 bg-[var(--color-foues-surface-sunken)]">
@@ -28,7 +37,7 @@ export default async function MagazineArchive(_props: MagazineArchiveProps) {
             className="text-2xl font-bold uppercase tracking-wider sm:text-3xl"
             style={{ color: "var(--color-foues-navy)" }}
           >
-            Revista Estudiantil
+            {title || "Publicaciones"}
           </h2>
           <span
             className="mt-2 block h-1 w-16 rounded-full"
@@ -49,7 +58,7 @@ export default async function MagazineArchive(_props: MagazineArchiveProps) {
               return (
                 <Link
                   key={issue.documentId}
-                  href={`/quienes-somos/revista/${issue.slug}`}
+                  href={`${basePath}/${issue.slug}`}
                   className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] rounded"
                 >
                   <div className="bg-[var(--color-foues-surface-raised)] shadow-md overflow-hidden flex flex-col h-full transition-shadow group-hover:shadow-lg">

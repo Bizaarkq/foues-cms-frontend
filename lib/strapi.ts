@@ -351,6 +351,8 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
   }
   ... on ComponentBlocksMagazineArchive {
     __typename
+    title
+    publications { documentId name slug }
   }
 `;
 
@@ -769,6 +771,7 @@ export interface MagazineIssue {
   pages: MagazineIssuePage[];
   conversionStatus: "processing" | "ready" | "failed";
   publishedAt: string | null;
+  publication: { documentId: string } | null;
 }
 
 // Raw response shapes (pre-normalisation, straight from GraphQL)
@@ -784,6 +787,7 @@ interface RawMagazineIssue {
   pages: MagazineIssuePage[];
   conversionStatus: "processing" | "ready" | "failed";
   publishedAt: string | null;
+  publication: { documentId: string } | null;
 }
 
 interface MagazineIssueBySlugResponse {
@@ -810,14 +814,17 @@ const MAGAZINE_ISSUE_BY_SLUG_QUERY = /* GraphQL */ `
       pages { url width height }
       conversionStatus
       publishedAt
+      publication { documentId }
     }
   }
 `;
 
+// $publicationIds narrows the archive to the block's selected publications;
+// pass null/omit for "all publications".
 const ALL_READY_MAGAZINE_ISSUES_QUERY = /* GraphQL */ `
-  query AllReadyMagazineIssues {
+  query AllReadyMagazineIssues($filters: MagazineIssueFiltersInput) {
     magazineIssues(
-      filters: { conversionStatus: { eq: "ready" } }
+      filters: $filters
       sort: "date:desc"
       pagination: { limit: 100 }
     ) {
@@ -838,6 +845,7 @@ const ALL_READY_MAGAZINE_ISSUES_QUERY = /* GraphQL */ `
       }
       conversionStatus
       publishedAt
+      publication { documentId }
     }
   }
 `;
@@ -867,16 +875,29 @@ export async function getMagazineIssueBySlug(
 }
 
 /**
- * getAllReadyMagazineIssues — fetch all published + ready magazine issues for
+ * getAllReadyMagazineIssues — fetch published + ready magazine issues for
  * the archive grid, sorted newest-first. Capped at 100 items.
+ *
+ * @param publicationIds - When provided and non-empty, only issues belonging
+ *                         to these publications are returned (archive block
+ *                         selection). Omit for all publications.
  *
  * Returns an empty array on failure (component renders the empty state).
  */
-export async function getAllReadyMagazineIssues(): Promise<MagazineIssue[]> {
+export async function getAllReadyMagazineIssues(
+  publicationIds?: string[]
+): Promise<MagazineIssue[]> {
+  const filters: Record<string, unknown> = {
+    conversionStatus: { eq: "ready" },
+  };
+  if (publicationIds && publicationIds.length > 0) {
+    filters.publication = { documentId: { in: publicationIds } };
+  }
+
   try {
     const data = await gql<AllMagazineIssuesResponse>(
       ALL_READY_MAGAZINE_ISSUES_QUERY,
-      undefined,
+      { filters },
       { tags: ["magazine-issues"] }
     );
     return data.magazineIssues;

@@ -8,9 +8,18 @@
  * Data flow:
  *   1. Normalize slug → path string (e.g. ["posgrado","admision"] → "/posgrado/admision")
  *   2. getPageByPath(path) — single unified GraphQL query, cached 24h (Decision #9)
- *   3. No route → 404. Route with no page → 404.
+ *   3. No route → magazine-edition fallback (see below) → 404.
  *   4. Select layout wrapper based on page.layout enum.
- *   5. BlockRenderer dispatches each block to its registered stub component.
+ *   5. BlockRenderer dispatches each block to its registered component.
+ *
+ * Magazine-edition fallback (no hardcoded prefix):
+ *   Edition URLs are `{path-of-the-page-holding-an-archive-block}/{issue-slug}`.
+ *   When a path does not resolve to a route, we strip the last segment and
+ *   resolve the parent page; if its content contains blocks.magazine-archive,
+ *   the last segment is treated as an issue slug and MagazineViewer renders it,
+ *   restricted to the publications selected on those blocks (none selected on
+ *   any block = all publications allowed). The parent route's visibility gate
+ *   applies to its editions too.
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -20,17 +29,33 @@ import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
 import { FullWidthLayout } from "@/components/sdui/layouts/FullWidthLayout";
 import { BlockRenderer } from "@/components/sdui/BlockRenderer";
 import { MagazineViewer } from "@/components/magazine/MagazineViewer";
+import type { SDUIBlock, MagazineArchiveProps, SectionProps } from "@/types/blocks";
 
-// Matches /quienes-somos/revista/{slug} — one path segment, no trailing slash.
-// Routed before the generic notFound() so that magazine edition URLs that have
-// no Strapi route record are handled by MagazineViewer instead of 404ing.
-const MAGAZINE_VIEWER_RE = /^\/quienes-somos\/revista\/([^/]+)$/;
+/**
+ * Collects every blocks.magazine-archive in a page's content, including
+ * those nested inside blocks.section groups (max depth 2 by design).
+ */
+function findMagazineArchiveBlocks(blocks: SDUIBlock[]): MagazineArchiveProps[] {
+  const found: MagazineArchiveProps[] = [];
+  for (const block of blocks) {
+    if (block.__component === "blocks.magazine-archive") {
+      found.push(block as MagazineArchiveProps);
+    } else if (block.__component === "blocks.section") {
+      const section = block as unknown as SectionProps;
+      for (const group of section.children ?? []) {
+        found.push(...findMagazineArchiveBlocks(group.blocks));
+      }
+    }
+  }
+  return found;
+}
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
 }) {
   const { slug } = await props.params;
-  const path = "/" + (slug?.join("/") ?? "");
+  const segments = slug ?? [];
+  const path = "/" + segments.join("/");
 
   const data = await getPageByPath(path);
 
@@ -39,19 +64,52 @@ export default async function Page(props: {
     notFound();
   }
 
-  // Magazine viewer route — checked before generic 404 so that edition URLs
-  // that have no Strapi route record are handled by the viewer, not by 404.
   if (!data.route || !data.route.page) {
-    const magazineMatch = MAGAZINE_VIEWER_RE.exec(path);
-    if (magazineMatch) {
-      return (
-        <MagazineViewer
-          slug={magazineMatch[1]}
-          navbar={data.navbar}
-          footer={data.footer}
-        />
-      );
+    // Magazine-edition fallback: does the parent path hold an archive block?
+    if (segments.length >= 2) {
+      const editionSlug = segments[segments.length - 1];
+      const parentPath = "/" + segments.slice(0, -1).join("/");
+      const parentData = await getPageByPath(parentPath);
+      const parentPage = parentData?.route?.page;
+
+      if (parentData?.route && parentPage) {
+        const archives = findMagazineArchiveBlocks(parentPage.content);
+
+        if (archives.length > 0) {
+          // Editions inherit the archive page's visibility gate.
+          const parentVisibility = parentData.route.visibility ?? "public";
+          if (parentVisibility === "requires-login" && !(await auth())) {
+            redirect("/login");
+          }
+
+          // Union of the publications selected across the page's archive
+          // blocks; any block with no selection opens the door to all.
+          const allowAll = archives.some(
+            (a) => !a.publications || a.publications.length === 0
+          );
+          const allowedPublicationIds = allowAll
+            ? null
+            : [
+                ...new Set(
+                  archives.flatMap((a) =>
+                    (a.publications ?? []).map((p) => p.documentId)
+                  )
+                ),
+              ];
+
+          return (
+            <MagazineViewer
+              slug={editionSlug}
+              backHref={parentPath}
+              allowedPublicationIds={allowedPublicationIds}
+              navbar={parentData.navbar}
+              footer={parentData.footer}
+            />
+          );
+        }
+      }
     }
+
     notFound();
   }
 
@@ -70,14 +128,14 @@ export default async function Page(props: {
   if (layout === "full-width") {
     return (
       <FullWidthLayout navbar={navbar} footer={footer}>
-        <BlockRenderer blocks={content} />
+        <BlockRenderer blocks={content} pagePath={path} />
       </FullWidthLayout>
     );
   }
 
   return (
     <DefaultLayout navbar={navbar} footer={footer}>
-      <BlockRenderer blocks={content} />
+      <BlockRenderer blocks={content} pagePath={path} />
     </DefaultLayout>
   );
 }

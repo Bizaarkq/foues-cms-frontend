@@ -15,7 +15,7 @@ import { BlockRenderer } from "@/components/sdui/BlockRenderer";
 import { sectionColSpan } from "@/lib/grid-columns";
 import type { SectionProps } from "@/types/blocks";
 
-export default function Section({ name, section_columns, children }: SectionProps) {
+export default function Section({ name, section_columns, children, pagePath }: SectionProps) {
   if (!children || children.length === 0) return null;
 
   return (
@@ -29,7 +29,7 @@ export default function Section({ name, section_columns, children }: SectionProp
           data-sdui-group={group.name ?? undefined}
           className={sectionColSpan(group.group_columns)}
         >
-          <BlockRenderer blocks={group.blocks} />
+          <BlockRenderer blocks={group.blocks} pagePath={pagePath} />
         </div>
       ))}
     </section>
