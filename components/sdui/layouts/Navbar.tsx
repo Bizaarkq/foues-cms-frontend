@@ -44,7 +44,7 @@ function NavItem({ item }: { item: RouteNavItem }) {
   if (item.type === 'header') {
     // Header: always non-clickable span
     trigger = (
-      <span className={`${triggerClass} cursor-default`}>
+      <span className={`${triggerClass} cursor-default`} aria-haspopup={hasChildren ? "true" : undefined}>
         <span className="group-hover:text-[var(--color-foues-navy)] transition-colors">
           {label}
         </span>
@@ -56,14 +56,14 @@ function NavItem({ item }: { item: RouteNavItem }) {
   } else if (item.type === 'section') {
     // Section: link if path is non-null, span otherwise
     trigger = item.path ? (
-      <Link href={item.path} className={triggerClass}>
+      <Link href={item.path} className={triggerClass} aria-haspopup={hasChildren ? "true" : undefined}>
         {label}
         {hasChildren && (
           <ChevronDown className="h-4 w-4 text-[var(--color-foues-text-muted)] transition-transform group-hover:rotate-180" />
         )}
       </Link>
     ) : (
-      <span className={`${triggerClass} cursor-default`}>
+      <span className={`${triggerClass} cursor-default`} aria-haspopup={hasChildren ? "true" : undefined}>
         <span className="group-hover:text-[var(--color-foues-navy)] transition-colors">
           {label}
         </span>
@@ -75,7 +75,7 @@ function NavItem({ item }: { item: RouteNavItem }) {
   } else {
     // page: always a link
     trigger = (
-      <Link href={item.path} className={triggerClass}>
+      <Link href={item.path} className={triggerClass} aria-haspopup={hasChildren ? "true" : undefined}>
         {label}
         {hasChildren && (
           <ChevronDown className="h-4 w-4 text-[var(--color-foues-text-muted)] transition-transform group-hover:rotate-180" />

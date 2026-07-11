@@ -2,8 +2,10 @@ import Link from "next/link";
 import type { InfoCardProps } from "@/types/blocks";
 import type { ButtonElement } from "@/types/elements";
 
-const FILLED_CLASS = "inline-flex h-[52px] items-center px-8 text-base font-bold text-white transition hover:opacity-90";
-const GHOST_CLASS = "inline-flex h-[52px] items-center border-2 px-8 text-base font-bold transition hover:opacity-80";
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-foues-accent)]";
+const FILLED_CLASS = `inline-flex h-[52px] items-center rounded-lg px-8 text-base font-bold text-white transition hover:opacity-90 ${FOCUS_RING}`;
+const GHOST_CLASS = `inline-flex h-[52px] items-center rounded-lg border-2 px-8 text-base font-bold transition hover:opacity-80 ${FOCUS_RING}`;
 
 function CtaButton({ cta }: { cta: ButtonElement }) {
   const isFilled = cta.variant?.includes("filled") ?? true;

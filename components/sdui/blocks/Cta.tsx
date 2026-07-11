@@ -19,17 +19,15 @@ export default function Cta({ title, description, buttons }: CtaProps) {
           {buttons.map((btn, i) => {
             const isPrimary = btn.variant.includes("primary");
             const isFilled = btn.variant.includes("filled");
+            // Tokens reales: navy (primario) / accent (secundario) — los
+            // antiguos --color-foues-primary/secondary no existen en globals
+            // y dejaban los botones sin color.
+            const brand = isPrimary ? "var(--color-foues-navy)" : "var(--color-foues-accent)";
             const classes =
-              "inline-flex items-center px-8 py-3 rounded-full text-sm font-bold tracking-widest uppercase transition hover:opacity-90";
+              "inline-flex items-center px-8 py-3 rounded-full text-sm font-bold tracking-widest uppercase transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-foues-accent)]";
             const style = isFilled
-              ? {
-                  backgroundColor: isPrimary ? "var(--color-foues-primary)" : "var(--color-foues-secondary)",
-                  color: "white",
-                }
-              : {
-                  border: `2px solid ${isPrimary ? "var(--color-foues-primary)" : "var(--color-foues-secondary)"}`,
-                  color: isPrimary ? "var(--color-foues-primary)" : "var(--color-foues-secondary)",
-                };
+              ? { backgroundColor: brand, color: "white" }
+              : { border: `2px solid ${brand}`, color: brand };
 
             if (!btn.url) {
               return (

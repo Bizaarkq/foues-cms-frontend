@@ -10,11 +10,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar, ArrowRight } from "lucide-react";
+import { Calendar, ArrowRight, LayoutGrid } from "lucide-react";
 import type { ContentGridProps } from "@/types/blocks";
 import type { CardElement } from "@/types/elements";
 import { mediaUrl, mediaAlt } from "@/lib/media";
 import { contentGridCols } from "@/lib/grid-columns";
+import { EmptyState } from "@/components/sdui/EmptyState";
+
+/** Wrapper de tarjeta clickeable: hover + anillo de foco visible (a11y). */
+const cardLinkClass =
+  "block h-full transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-foues-accent)]";
+
+/** Chip de etiqueta sobre fondo claro (reemplaza el badge de Skeleton). */
+const tagChipClass =
+  "self-start rounded-full px-2 py-0.5 text-xs font-semibold text-[var(--color-foues-accent)]";
+const tagChipStyle = {
+  backgroundColor: "color-mix(in srgb, var(--color-foues-accent) 14%, transparent)",
+} as const;
 
 // ---------------------------------------------------------------------------
 // Card style sub-components
@@ -55,7 +67,7 @@ function CardDefault({ item }: { item: CardElement }) {
   );
 
   return item.url ? (
-    <Link href={item.url} className="block h-full focus:outline-none">
+    <Link href={item.url} className={cardLinkClass}>
       {inner}
     </Link>
   ) : (
@@ -65,19 +77,19 @@ function CardDefault({ item }: { item: CardElement }) {
 
 function CardCompact({ item }: { item: CardElement }) {
   const inner = (
-    <div className="card p-3 flex flex-col gap-1 h-full">
+    <div className="flex h-full flex-col gap-1 rounded-xl border border-[var(--color-foues-border-subtle)] bg-[var(--color-foues-surface-raised)] p-3 shadow-sm">
       {item.tag && (
-        <span className="badge variant-soft-primary text-xs self-start">{item.tag}</span>
+        <span className={tagChipClass} style={tagChipStyle}>{item.tag}</span>
       )}
-      <h3 className="font-semibold text-sm leading-snug">{item.title}</h3>
+      <h3 className="font-semibold text-sm leading-snug text-[var(--color-foues-text-base)]">{item.title}</h3>
       {item.description && (
-        <p className="text-xs text-surface-700 line-clamp-2">{item.description}</p>
+        <p className="text-xs text-[var(--color-foues-text-secondary)] line-clamp-2">{item.description}</p>
       )}
     </div>
   );
 
   return item.url ? (
-    <Link href={item.url} className="block h-full hover:opacity-90 transition-opacity">
+    <Link href={item.url} className={cardLinkClass}>
       {inner}
     </Link>
   ) : (
@@ -90,13 +102,18 @@ function CardFeatured({ item }: { item: CardElement }) {
   const imgAlt = mediaAlt(item.image, item.title);
 
   const inner = (
-    <div className="card overflow-hidden h-full relative min-h-64 flex items-end">
+    <div className="relative flex h-full min-h-64 items-end overflow-hidden rounded-xl border border-[var(--color-foues-border-subtle)] bg-[var(--color-foues-surface-raised)] shadow-sm">
       {imgUrl && (
         <Image src={imgUrl} alt={imgAlt} fill className="object-cover" sizes="(max-width:640px) 100vw, 50vw" />
       )}
       <div className="relative z-10 p-5 bg-gradient-to-t from-black/70 via-black/30 to-transparent w-full">
         {item.tag && (
-          <span className="badge variant-filled-primary text-xs mb-1">{item.tag}</span>
+          <span
+            className="mb-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold text-white"
+            style={{ backgroundColor: "var(--color-foues-accent)" }}
+          >
+            {item.tag}
+          </span>
         )}
         <h3 className="font-bold text-lg text-white leading-snug">{item.title}</h3>
         {item.description && (
@@ -107,7 +124,7 @@ function CardFeatured({ item }: { item: CardElement }) {
   );
 
   return item.url ? (
-    <Link href={item.url} className="block h-full hover:opacity-90 transition-opacity">
+    <Link href={item.url} className={cardLinkClass}>
       {inner}
     </Link>
   ) : (
@@ -120,7 +137,7 @@ function CardHorizontal({ item }: { item: CardElement }) {
   const imgAlt = mediaAlt(item.image, item.title);
 
   const inner = (
-    <div className="card overflow-hidden flex flex-row gap-0 h-full">
+    <div className="flex h-full flex-row gap-0 overflow-hidden rounded-xl border border-[var(--color-foues-border-subtle)] bg-[var(--color-foues-surface-raised)] shadow-sm">
       {imgUrl && (
         <div className="relative w-32 shrink-0 overflow-hidden">
           <Image src={imgUrl} alt={imgAlt} fill className="object-cover" sizes="128px" />
@@ -128,18 +145,18 @@ function CardHorizontal({ item }: { item: CardElement }) {
       )}
       <div className="p-4 flex flex-col gap-2 flex-1">
         {item.tag && (
-          <span className="badge variant-soft-primary text-xs self-start">{item.tag}</span>
+          <span className={tagChipClass} style={tagChipStyle}>{item.tag}</span>
         )}
-        <h3 className="font-semibold text-sm leading-snug">{item.title}</h3>
+        <h3 className="font-semibold text-sm leading-snug text-[var(--color-foues-text-base)]">{item.title}</h3>
         {item.description && (
-          <p className="text-xs text-surface-700 line-clamp-3">{item.description}</p>
+          <p className="text-xs text-[var(--color-foues-text-secondary)] line-clamp-3">{item.description}</p>
         )}
       </div>
     </div>
   );
 
   return item.url ? (
-    <Link href={item.url} className="block h-full hover:opacity-90 transition-opacity">
+    <Link href={item.url} className={cardLinkClass}>
       {inner}
     </Link>
   ) : (
@@ -183,7 +200,7 @@ export default function ContentGrid({
           </div>
         )}
         {items.length === 0 ? (
-          <p className="text-center text-[var(--color-foues-text-muted)]">No hay contenido disponible</p>
+          <EmptyState icon={LayoutGrid} message="Todavía no hay contenido en esta sección." />
         ) : (
           <div className={`${gridClass} gap-6`}>
             {items.map((item, i) => (

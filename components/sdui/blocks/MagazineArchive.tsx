@@ -11,15 +11,58 @@
  * the archive concern encapsulated inside the block.
  */
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getAllReadyMagazineIssues } from "@/lib/strapi";
 import { mediaUrl } from "@/lib/media";
+import { EmptyState } from "@/components/sdui/EmptyState";
 import type { MagazineArchiveProps } from "@/types/blocks";
 
-export default async function MagazineArchive({
-  title,
+/** Skeleton del grid de portadas mientras el RSC async resuelve su fetch. */
+function ArchiveSkeleton() {
+  return (
+    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" aria-hidden>
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="overflow-hidden bg-[var(--color-foues-surface-raised)] shadow-md">
+          <div className="aspect-[3/4] w-full animate-pulse bg-[var(--color-foues-border-subtle)]" />
+          <div className="flex flex-col gap-2 p-4">
+            <div className="h-3 w-1/3 animate-pulse rounded bg-[var(--color-foues-border-subtle)]" />
+            <div className="h-4 w-3/4 animate-pulse rounded bg-[var(--color-foues-border-subtle)]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function MagazineArchive(props: MagazineArchiveProps) {
+  return (
+    <section className="w-full py-16 bg-[var(--color-foues-surface-sunken)]">
+      <div className="max-w-[1920px] mx-auto px-6">
+        <div className="mb-10">
+          <h2
+            className="text-2xl font-bold uppercase tracking-wider sm:text-3xl"
+            style={{ color: "var(--color-foues-navy)" }}
+          >
+            {props.title || "Publicaciones"}
+          </h2>
+          <span
+            className="mt-2 block h-1 w-16 rounded-full"
+            style={{ backgroundColor: "var(--color-foues-accent)" }}
+            aria-hidden="true"
+          />
+        </div>
+        <Suspense fallback={<ArchiveSkeleton />}>
+          <ArchiveGrid {...props} />
+        </Suspense>
+      </div>
+    </section>
+  );
+}
+
+async function ArchiveGrid({
   publications,
   pagePath,
 }: MagazineArchiveProps) {
@@ -30,27 +73,10 @@ export default async function MagazineArchive({
   const basePath = pagePath ?? "";
 
   return (
-    <section className="w-full py-16 bg-[var(--color-foues-surface-sunken)]">
-      <div className="max-w-[1920px] mx-auto px-6">
-        <div className="mb-10">
-          <h2
-            className="text-2xl font-bold uppercase tracking-wider sm:text-3xl"
-            style={{ color: "var(--color-foues-navy)" }}
-          >
-            {title || "Publicaciones"}
-          </h2>
-          <span
-            className="mt-2 block h-1 w-16 rounded-full"
-            style={{ backgroundColor: "var(--color-foues-accent)" }}
-            aria-hidden="true"
-          />
-        </div>
-
-        {issues.length === 0 ? (
-          <p className="text-center text-[var(--color-foues-text-muted)]">
-            No hay ediciones disponibles
-          </p>
-        ) : (
+    <>
+      {issues.length === 0 ? (
+        <EmptyState icon={BookOpen} message="Todavía no hay ediciones publicadas." />
+      ) : (
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {issues.map((issue) => {
               const coverUrl = issue.cover ? mediaUrl(issue.cover) : null;
@@ -117,8 +143,7 @@ export default async function MagazineArchive({
               );
             })}
           </div>
-        )}
-      </div>
-    </section>
+      )}
+    </>
   );
 }
