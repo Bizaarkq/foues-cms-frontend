@@ -1,5 +1,7 @@
+import { CalendarDays } from "lucide-react";
 import type { KeyDatesProps } from "@/types/blocks";
 import type { DateEntry } from "@/types/elements";
+import { EmptyState } from "@/components/sdui/EmptyState";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,11 +50,7 @@ const WEEKDAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
 
 function CalendarGrid({ items }: { items: DateEntry[] }) {
   if (items.length === 0) {
-    return (
-      <p className="mt-4 text-sm opacity-60" style={{ color: "var(--color-foues-navy)" }}>
-        Sin fechas configuradas.
-      </p>
-    );
+    return <EmptyState icon={CalendarDays} message="Todavía no hay fechas configuradas." />;
   }
 
   // Anchor month = first item's start_date after sorting
@@ -142,6 +140,11 @@ function CalendarGrid({ items }: { items: DateEntry[] }) {
               }
             >
               {day}
+              {isHighlighted && (
+                // Señal no-cromática: lector de pantalla anuncia el evento
+                // (el resaltado visual es solo color + peso de fuente)
+                <span className="sr-only">, evento: {tooltipLabel}</span>
+              )}
             </div>
           );
         })}
@@ -202,11 +205,7 @@ function CalendarGrid({ items }: { items: DateEntry[] }) {
 
 function DateList({ items }: { items: DateEntry[] }) {
   if (items.length === 0) {
-    return (
-      <p className="mt-4 text-sm opacity-60" style={{ color: "var(--color-foues-navy)" }}>
-        Sin fechas configuradas.
-      </p>
-    );
+    return <EmptyState icon={CalendarDays} message="Todavía no hay fechas configuradas." />;
   }
 
   const sorted = [...items].sort(

@@ -2,14 +2,16 @@ import Image from "next/image";
 import type { PhotoGalleryProps } from "@/types/blocks";
 import { mediaUrl, mediaAlt } from "@/lib/media";
 
+// Masonry responsivo: bajo `sm`/`lg` colapsa — el mapa fijo anterior dejaba
+// 4 columnas diminutas también en móvil.
 const COLS_MAP: Record<string, string> = {
-  col_2: "columns-2",
-  col_3: "columns-3",
-  col_4: "columns-4",
+  col_2: "columns-1 sm:columns-2",
+  col_3: "columns-2 lg:columns-3",
+  col_4: "columns-2 lg:columns-4",
 };
 
 export default function PhotoGallery({ title, subtitle, images, photo_columns }: PhotoGalleryProps) {
-  const colsClass = COLS_MAP[photo_columns] ?? "columns-3";
+  const colsClass = COLS_MAP[photo_columns] ?? "columns-2 lg:columns-3";
 
   return (
     <section

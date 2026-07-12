@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Phone, Mail } from "lucide-react";
+import { LucideIcon } from "@/components/ui/LucideIcon";
 import type {
   FooterData,
   FooterColumn,
@@ -16,7 +18,13 @@ function ColInstitution({ col }: { col: FooterColumnInstitution }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
         {logoUrl ? (
-          <img src={logoUrl} alt="Logo" className="h-16 w-auto object-contain" />
+          <Image
+            src={logoUrl}
+            alt={col.institution_name ?? "Logo de la Facultad de Odontología"}
+            width={64}
+            height={64}
+            className="h-16 w-auto object-contain"
+          />
         ) : (
           <div
             className="flex h-16 w-12 shrink-0 items-center justify-center text-xs font-bold text-white"
@@ -43,16 +51,32 @@ function ColInstitution({ col }: { col: FooterColumnInstitution }) {
       )}
       {col.social_links.length > 0 && (
         <div className="flex gap-3">
-          {col.social_links.map((link, i) => (
-            <a
-              key={i}
-              href={link.url ?? "#"}
-              className="flex h-10 w-10 items-center justify-center bg-white/10 text-white transition hover:bg-white/20"
-              aria-label={link.label}
-            >
+          {col.social_links.map((link, i) => {
+            // Ícono lucide del CMS; iniciales como fallback si no hay ícono
+            const inner = link.icon ? (
+              <LucideIcon name={link.icon} size={18} aria-hidden />
+            ) : (
               <span className="text-xs font-bold">{link.label.slice(0, 2).toUpperCase()}</span>
-            </a>
-          ))}
+            );
+            const boxClass =
+              "flex h-10 w-10 items-center justify-center bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+            return link.url ? (
+              <a
+                key={i}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={boxClass}
+                aria-label={link.label}
+              >
+                {inner}
+              </a>
+            ) : (
+              <span key={i} className={boxClass} aria-label={link.label}>
+                {inner}
+              </span>
+            );
+          })}
         </div>
       )}
     </div>
@@ -156,8 +180,8 @@ export function Footer({ footer }: FooterProps) {
       {hasCols && (
         <div className="max-w-[1920px] mx-auto px-6 pb-12">
           <div
-            className="grid gap-10"
-            style={{ gridTemplateColumns: `repeat(${footer.columns.length}, minmax(0, 1fr))` }}
+            className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[repeat(var(--footer-cols),minmax(0,1fr))]"
+            style={{ "--footer-cols": footer.columns.length } as React.CSSProperties}
           >
             {footer.columns.map((col, i) => (
               <FooterColumnRenderer key={i} col={col} />

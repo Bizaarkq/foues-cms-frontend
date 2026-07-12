@@ -109,20 +109,21 @@
    Sobreescribe los defaults grises de @tailwindcss/typography.
    ───────────────────────────────────────────────────────────── */
 .prose {
-  --tw-prose-body: #1e293b;
+  /* Todo vía tokens foues: los hex fijos no aclaraban en dark mode */
+  --tw-prose-body: var(--color-foues-text-body);
   --tw-prose-headings: var(--color-foues-navy);
-  --tw-prose-lead: #475569;
+  --tw-prose-lead: var(--color-foues-text-secondary);
   --tw-prose-links: var(--color-foues-accent);
   --tw-prose-bold: var(--color-foues-navy);
   --tw-prose-counters: var(--color-foues-accent);
   --tw-prose-bullets: var(--color-foues-accent);
-  --tw-prose-hr: #e2e8f0;
+  --tw-prose-hr: var(--color-foues-border-subtle);
   --tw-prose-quotes: var(--color-foues-navy);
   --tw-prose-quote-borders: var(--color-foues-accent);
-  --tw-prose-captions: #64748b;
+  --tw-prose-captions: var(--color-foues-text-muted);
   --tw-prose-code: var(--color-foues-navy);
   --tw-prose-pre-code: #f8fafc;
   --tw-prose-pre-bg: var(--color-foues-navy);
-  --tw-prose-th-borders: #cbd5e1;
-  --tw-prose-td-borders: #e2e8f0;
+  --tw-prose-th-borders: var(--color-foues-border-input);
+  --tw-prose-td-borders: var(--color-foues-border-subtle);
 }

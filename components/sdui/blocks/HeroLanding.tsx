@@ -24,11 +24,13 @@ export default function HeroLanding({ title, subtitle, backgroundImage, buttons 
         />
       )}
 
-      {/* Gradiente horizontal izquierda→derecha */}
+      {/* Gradiente horizontal izquierda→derecha, derivado del token navy
+          para que siga a la paleta editable (y al dark mode) */}
       <div
         className="absolute inset-0"
         style={{
-          background: "linear-gradient(to right, rgba(4,33,84,0.95), rgba(4,33,84,0.7))",
+          background:
+            "linear-gradient(to right, color-mix(in srgb, var(--color-foues-navy) 95%, transparent), color-mix(in srgb, var(--color-foues-navy) 70%, transparent))",
           zIndex: -10,
         }}
         aria-hidden="true"
@@ -49,9 +51,11 @@ export default function HeroLanding({ title, subtitle, backgroundImage, buttons 
             <div className="mt-10 flex flex-wrap gap-4">
               {buttons.map((btn, i) => {
                 const isFilled = btn.variant.includes("filled");
+                const focusRing =
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
                 const classes = isFilled
-                  ? "inline-flex h-[60px] items-center px-8 text-base font-bold text-white transition hover:opacity-90"
-                  : "inline-flex h-[60px] items-center px-8 text-base font-bold transition hover:opacity-90";
+                  ? `inline-flex h-[60px] items-center rounded-lg px-8 text-base font-bold text-white transition hover:opacity-90 ${focusRing}`
+                  : `inline-flex h-[60px] items-center rounded-lg px-8 text-base font-bold transition hover:opacity-90 ${focusRing}`;
                 const style = isFilled
                   ? { backgroundColor: "var(--color-foues-accent)" }
                   : { backgroundColor: "white", color: "var(--color-foues-navy)" };

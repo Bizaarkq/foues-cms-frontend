@@ -33,12 +33,12 @@ export default function MapSchedule({
             }}
           >
             <div className="mb-6">
-              <h3
+              <h2
                 className="text-2xl font-bold uppercase tracking-wider sm:text-3xl"
                 style={{ color: "var(--color-foues-navy)" }}
               >
                 {clinic_name}
-              </h3>
+              </h2>
               <span
                 className="mt-2 block h-1 w-16 rounded-full"
                 style={{ backgroundColor: "var(--color-foues-accent)" }}

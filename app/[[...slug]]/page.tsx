@@ -125,9 +125,17 @@ export default async function Page(props: {
   const { layout, content } = page;
   const { navbar, footer } = data;
 
+  // A11y: los bloques hero emiten el h1; una página sin hero quedaba sin h1
+  // (jerarquía rota para lectores de pantalla). El título del CMS lo cubre.
+  const hasHeroH1 = content.some(
+    (b) => b.__component === "blocks.hero-landing" || b.__component === "blocks.hero-page"
+  );
+  const srTitle = hasHeroH1 ? null : <h1 className="sr-only">{page.title}</h1>;
+
   if (layout === "full-width") {
     return (
       <FullWidthLayout navbar={navbar} footer={footer}>
+        {srTitle}
         <BlockRenderer blocks={content} pagePath={path} />
       </FullWidthLayout>
     );
@@ -135,6 +143,7 @@ export default async function Page(props: {
 
   return (
     <DefaultLayout navbar={navbar} footer={footer}>
+      {srTitle}
       <BlockRenderer blocks={content} pagePath={path} />
     </DefaultLayout>
   );
