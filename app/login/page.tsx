@@ -144,6 +144,17 @@ export default async function LoginPage({
         >
           Acceso restringido a cuentas @ues.edu.sv.
         </p>
+
+        {/* Transparencia (spec sesión de usuario §5): cookie esencial +
+            registro del correo, informado ANTES de iniciar sesión */}
+        <p
+          className="text-xs text-center leading-relaxed"
+          style={{ color: 'var(--color-foues-text-faint)' }}
+        >
+          Al iniciar sesión se usa una cookie técnica para mantener tu sesión
+          y se registra tu correo institucional con fines de control de
+          acceso al sitio.
+        </p>
       </div>
     </main>
   );

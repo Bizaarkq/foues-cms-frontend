@@ -32,6 +32,8 @@ export interface MobileBarShortcut {
 interface MobileBottomNavClientProps {
   items: RouteNavItem[];
   shortcuts: MobileBarShortcut[];
+  /** Pie del sheet renderizado por el RSC padre (cuenta / login / Campus). */
+  sheetFooter?: React.ReactNode;
 }
 
 const barItemClass =
@@ -126,7 +128,7 @@ function SheetNavRow({
   );
 }
 
-export function MobileBottomNavClient({ items, shortcuts }: MobileBottomNavClientProps) {
+export function MobileBottomNavClient({ items, shortcuts, sheetFooter }: MobileBottomNavClientProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -201,16 +203,21 @@ export function MobileBottomNavClient({ items, shortcuts }: MobileBottomNavClien
               </button>
             </div>
           </div>
-          <div
-            className="overflow-y-auto px-2 pt-1"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
-          >
+          <div className="overflow-y-auto px-2 pt-1 pb-4">
             <ul>
               {items.map((item) => (
                 <SheetNavRow key={item.documentId} item={item} depth={0} onNavigate={close} />
               ))}
             </ul>
           </div>
+          {sheetFooter && (
+            <div
+              className="shrink-0 border-t border-[var(--color-foues-border-subtle)] px-4 pt-4"
+              style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
+            >
+              {sheetFooter}
+            </div>
+          )}
         </section>
       </div>
 
