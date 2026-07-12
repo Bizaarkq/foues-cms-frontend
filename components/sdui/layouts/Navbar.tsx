@@ -10,10 +10,11 @@
  */
 
 import Link from "next/link";
-import { ChevronDown, Monitor, LogIn, LogOut } from "lucide-react";
+import { ChevronDown, Monitor, LogIn } from "lucide-react";
 import type { NavbarData, RouteNavItem } from "@/types/page";
 import { auth, signOut } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { UserMenu } from "./UserMenu";
 
 /**
  * Drops requires-login items for anonymous visitors, recursively.
@@ -141,14 +142,19 @@ function NavItem({ item }: { item: RouteNavItem }) {
 
 export async function Navbar({ navbar }: { navbar: NavbarData }) {
   const session = await auth();
-  const userName = session?.user?.name?.split(' ')[0] ?? null;
   const visibleItems = filterByVisibility(navbar.items, session != null);
+
+  async function doSignOut() {
+    'use server';
+    await signOut({ redirectTo: '/' });
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full">
-      {/* Barra superior */}
+      {/* Barra superior — solo desktop: en móvil la cuenta y Campus Virtual
+          viven en el pie del bottom sheet (spec sesión de usuario §4) */}
       <div
-        className="flex h-9 items-center justify-end gap-6 px-6"
+        className="hidden h-9 items-center justify-end gap-6 px-6 md:flex"
         style={{ backgroundColor: "var(--color-foues-accent)" }}
       >
         {env.campusVirtualUrl && (
@@ -162,21 +168,13 @@ export async function Navbar({ navbar }: { navbar: NavbarData }) {
             <span>Campus Virtual</span>
           </a>
         )}
-        {session ? (
-          <form
-            action={async () => {
-              'use server';
-              await signOut({ redirectTo: '/' });
-            }}
-          >
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 text-sm text-white/90 hover:text-white transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Cerrar sesión{userName ? ` (${userName})` : ''}</span>
-            </button>
-          </form>
+        {session?.user?.name && session.user.email ? (
+          <UserMenu
+            name={session.user.name}
+            email={session.user.email}
+            roleName={session.user.role?.name ?? null}
+            signOutAction={doSignOut}
+          />
         ) : (
           <Link
             href="/login"
