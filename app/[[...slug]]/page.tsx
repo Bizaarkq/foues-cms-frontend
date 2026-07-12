@@ -32,6 +32,35 @@ import { MagazineViewer } from "@/components/magazine/MagazineViewer";
 import type { SDUIBlock, MagazineArchiveProps, SectionProps } from "@/types/blocks";
 
 /**
+ * Authoritative access gate (Spec B + gating por rol, spec sesión §7):
+ * - 'requires-login' → exige sesión; anónimo va a /login.
+ * - allowedRoles no vacía → exige sesión Y que el rol del JWT esté en la
+ *   lista. Anónimo va a /login (puede tener el rol tras loguearse); un
+ *   usuario logueado sin el rol recibe 404 — la ruta no se le revela
+ *   (el navbar ya se la oculta con el mismo criterio).
+ * El rol se lee del JWT (cero queries extra); cambios de rol aplican en
+ * el siguiente login — limitación aceptada.
+ */
+async function enforceRouteAccess(route: {
+  visibility: "public" | "requires-login";
+  allowedRoles: string[];
+}): Promise<void> {
+  const requiresSession =
+    route.visibility === "requires-login" || route.allowedRoles.length > 0;
+  if (!requiresSession) return;
+
+  const session = await auth();
+  if (!session) redirect("/login");
+
+  if (route.allowedRoles.length > 0) {
+    const roleKey = session.user?.role?.key ?? null;
+    if (roleKey === null || !route.allowedRoles.includes(roleKey)) {
+      notFound();
+    }
+  }
+}
+
+/**
  * Collects every blocks.magazine-archive in a page's content, including
  * those nested inside blocks.section groups (max depth 2 by design).
  */
@@ -76,11 +105,8 @@ export default async function Page(props: {
         const archives = findMagazineArchiveBlocks(parentPage.content);
 
         if (archives.length > 0) {
-          // Editions inherit the archive page's visibility gate.
-          const parentVisibility = parentData.route.visibility ?? "public";
-          if (parentVisibility === "requires-login" && !(await auth())) {
-            redirect("/login");
-          }
+          // Editions inherit the archive page's visibility/role gate.
+          await enforceRouteAccess(parentData.route);
 
           // Union of the publications selected across the page's archive
           // blocks; any block with no selection opens the door to all.
@@ -114,12 +140,8 @@ export default async function Page(props: {
   }
 
   // Spec B — "Server Component Visibility Enforcement"
-  // Proxy does an O(1) cookie check; this is the authoritative CMS-driven gate.
-  // null/undefined visibility is treated as 'public' (defaulted in strapi.ts mapper).
-  const visibility = data.route.visibility ?? 'public';
-  if (visibility === 'requires-login' && !(await auth())) {
-    redirect('/login');
-  }
+  // Proxy does no auth; this is the authoritative CMS-driven gate.
+  await enforceRouteAccess(data.route);
 
   const page = data.route.page;
   const { layout, content } = page;
