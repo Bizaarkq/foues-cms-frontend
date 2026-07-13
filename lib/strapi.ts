@@ -394,6 +394,7 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
       slug
       active
       visibility
+      allowed_roles { key }
       parent {
         active
         parent {
@@ -422,6 +423,7 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
       order
       active
       visibility
+      allowed_roles { key }
       children(sort: "order:asc") {
         documentId
         path
@@ -431,6 +433,7 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
         order
         active
         visibility
+        allowed_roles { key }
         children(sort: "order:asc") {
           documentId
           path
@@ -440,6 +443,7 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
           order
           active
           visibility
+          allowed_roles { key }
           children(sort: "order:asc") {
             documentId
             path
@@ -449,6 +453,7 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
             order
             active
             visibility
+            allowed_roles { key }
           }
         }
       }
@@ -461,6 +466,7 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
         route {
           path
           visibility
+          allowed_roles { key }
           active
           type
           page {
@@ -519,6 +525,9 @@ interface RawBlockGroup {
   blocks: RawBlock[];
 }
 
+/** Raw allowed_roles relation — `key` is a Strapi uid, nullable until generated. */
+type RawAllowedRoles = Array<{ key: string | null }> | null;
+
 interface RawRouteNode {
   documentId: string;
   path: string;
@@ -528,6 +537,7 @@ interface RawRouteNode {
   order: number;
   active: boolean;
   visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
+  allowed_roles?: RawAllowedRoles;
   children?: RawRouteNode[];
 }
 
@@ -545,6 +555,7 @@ interface PageByPathResponse {
     slug: string | null;
     active: boolean;
     visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
+    allowed_roles?: RawAllowedRoles;
     parent: RawRouteParent | null;
     page: {
       documentId: string;
@@ -562,6 +573,7 @@ interface PageByPathResponse {
       route: {
         path: string;
         visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
+        allowed_roles?: RawAllowedRoles;
         active: boolean;
         type: 'page' | 'section' | 'header';
         page: { documentId: string } | null;
@@ -593,6 +605,11 @@ function normalizeVisibility(
     : 'public';
 }
 
+/** Flattens the allowed_roles relation to role keys, dropping never-generated uids. */
+function mapAllowedRoles(roles: RawAllowedRoles | undefined): string[] {
+  return (roles ?? []).flatMap((r) => (r.key ? [r.key] : []));
+}
+
 function mapRouteNode(r: RawRouteNode): RouteNavItem {
   return {
     documentId: r.documentId,
@@ -603,6 +620,7 @@ function mapRouteNode(r: RawRouteNode): RouteNavItem {
     order: r.order,
     active: r.active,
     visibility: normalizeVisibility(r.visibility),
+    allowedRoles: mapAllowedRoles(r.allowed_roles),
     children: (r.children ?? [])
       .filter((c) => c.active !== false)
       .map(mapRouteNode),
@@ -660,6 +678,7 @@ export async function getPageByPath(
         type: rawRoute.type,
         slug: rawRoute.slug,
         visibility: normalizeVisibility(rawRoute.visibility),
+        allowedRoles: mapAllowedRoles(rawRoute.allowed_roles),
         page: rawRoute.page
           ? {
               documentId: rawRoute.page.documentId,
@@ -681,6 +700,7 @@ export async function getPageByPath(
         ? {
             path: item.route.path,
             visibility: normalizeVisibility(item.route.visibility),
+            allowedRoles: mapAllowedRoles(item.route.allowed_roles),
             active: item.route.active,
             type: item.route.type,
             hasPage: item.route.page != null,

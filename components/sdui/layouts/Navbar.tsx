@@ -17,19 +17,26 @@ import { env } from "@/lib/env";
 import { UserMenu } from "./UserMenu";
 
 /**
- * Drops requires-login items for anonymous visitors, recursively.
- * Removing a parent removes its whole subtree — children of a hidden
- * group are never shown, regardless of their own visibility.
+ * Drops requires-login items for anonymous visitors and role-gated items
+ * (allowedRoles non-empty) for users whose role key is not in the list,
+ * recursively. Removing a parent removes its whole subtree — children of
+ * a hidden group are never shown, regardless of their own visibility.
  */
 export function filterByVisibility(
   items: RouteNavItem[],
-  isLoggedIn: boolean
+  isLoggedIn: boolean,
+  roleKey: string | null
 ): RouteNavItem[] {
   return items
     .filter((item) => isLoggedIn || item.visibility !== "requires-login")
+    .filter(
+      (item) =>
+        item.allowedRoles.length === 0 ||
+        (roleKey !== null && item.allowedRoles.includes(roleKey))
+    )
     .map((item) => ({
       ...item,
-      children: filterByVisibility(item.children, isLoggedIn),
+      children: filterByVisibility(item.children, isLoggedIn, roleKey),
     }));
 }
 
@@ -142,7 +149,11 @@ function NavItem({ item }: { item: RouteNavItem }) {
 
 export async function Navbar({ navbar }: { navbar: NavbarData }) {
   const session = await auth();
-  const visibleItems = filterByVisibility(navbar.items, session != null);
+  const visibleItems = filterByVisibility(
+    navbar.items,
+    session != null,
+    session?.user?.role?.key ?? null
+  );
 
   async function doSignOut() {
     'use server';

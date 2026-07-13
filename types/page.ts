@@ -25,6 +25,8 @@ export interface RouteNavItem {
   slug: string | null;
   active: boolean;
   visibility: 'public' | 'requires-login';
+  /** Role keys allowed to see this route. Empty = no role restriction (visibility rules). */
+  allowedRoles: string[];
   children: RouteNavItem[];
 }
 
@@ -51,6 +53,8 @@ export interface RouteData {
   type: RouteType;
   slug: string | null;
   visibility: 'public' | 'requires-login';
+  /** Role keys allowed to see this route. Empty = no role restriction (visibility rules). */
+  allowedRoles: string[];
   page: PageData | null;
 }
 
@@ -66,6 +70,8 @@ export interface MobileNavItem {
   route: {
     path: string;
     visibility: 'public' | 'requires-login';
+    /** Role keys allowed to see this route. Empty = no role restriction (visibility rules). */
+    allowedRoles: string[];
     active: boolean;
     type: RouteType;
     /** Whether the route has a page attached — a tap must always land on real content. */

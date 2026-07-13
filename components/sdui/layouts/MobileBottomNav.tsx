@@ -65,6 +65,7 @@ function SheetAccount({
 export async function MobileBottomNav({ navbar }: { navbar: NavbarData }) {
   const session = await auth();
   const isLoggedIn = session != null;
+  const roleKey = session?.user?.role?.key ?? null;
 
   async function doSignOut() {
     'use server';
@@ -73,7 +74,7 @@ export async function MobileBottomNav({ navbar }: { navbar: NavbarData }) {
 
   // Same shape the desktop Navbar renders: root containers flattened to
   // their children, ordered by route.order.
-  const menuItems = filterByVisibility(navbar.items, isLoggedIn)
+  const menuItems = filterByVisibility(navbar.items, isLoggedIn, roleKey)
     .flatMap((root) => root.children)
     .sort((a, b) => a.order - b.order);
 
@@ -83,6 +84,11 @@ export async function MobileBottomNav({ navbar }: { navbar: NavbarData }) {
       if (!item.route) return false;
       if (!item.route.active || !item.route.hasPage || !item.route.path) return false;
       if (item.route.visibility === "requires-login" && !isLoggedIn) return false;
+      if (
+        item.route.allowedRoles.length > 0 &&
+        (roleKey === null || !item.route.allowedRoles.includes(roleKey))
+      )
+        return false;
       return true;
     })
     .slice(0, 3)
