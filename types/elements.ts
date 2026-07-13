@@ -89,3 +89,23 @@ export interface ScheduleEntryElement {
   day_range: string;
   time_range: string;
 }
+
+/** elements.accordion-item */
+export interface AccordionItemElement {
+  label: string;
+  content: string; // markdown (Strapi richtext)
+}
+
+/** elements.tab-item */
+export interface TabItemElement {
+  label: string;
+  content: string; // markdown (Strapi richtext)
+}
+
+/** elements.slide */
+export interface SlideElement {
+  image: StrapiMedia | null;
+  title: string | null;
+  text: string | null;
+  link: string | null;
+}

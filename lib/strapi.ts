@@ -103,6 +103,10 @@ const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksSection: "blocks.section",
   ComponentBlocksForm: "blocks.form",
   ComponentBlocksMagazineArchive: "blocks.magazine-archive",
+  ComponentBlocksAccordion: "blocks.accordion",
+  ComponentBlocksTabs: "blocks.tabs",
+  ComponentBlocksCarousel: "blocks.carousel",
+  ComponentBlocksTable: "blocks.table",
 };
 
 const FOOTER_TYPENAME_TO_COMPONENT: Record<string, string> = {
@@ -353,6 +357,33 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
     __typename
     title
     publications { documentId name slug }
+  }
+  ... on ComponentBlocksAccordion {
+    __typename
+    title
+    items { label content }
+  }
+  ... on ComponentBlocksTabs {
+    __typename
+    title
+    items { label content }
+  }
+  ... on ComponentBlocksCarousel {
+    __typename
+    title
+    autoplay
+    slides {
+      image { documentId url alternativeText width height mime name }
+      title
+      text
+      link
+    }
+  }
+  ... on ComponentBlocksTable {
+    __typename
+    title
+    description
+    data
   }
 `;
 

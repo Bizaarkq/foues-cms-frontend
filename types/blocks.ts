@@ -19,6 +19,9 @@ import type {
   QuickLinkItem,
   ListItem,
   DateEntry,
+  AccordionItemElement,
+  TabItemElement,
+  SlideElement,
 } from "./elements";
 
 // ---------------------------------------------------------------------------
@@ -187,6 +190,38 @@ export interface FormBlockProps {
   form: FormDefinition | null;
 }
 
+export interface AccordionBlockProps {
+  title: string | null;
+  items: AccordionItemElement[];
+}
+
+export interface TabsBlockProps {
+  title: string | null;
+  items: TabItemElement[];
+}
+
+export interface CarouselBlockProps {
+  title: string | null;
+  slides: SlideElement[];
+  autoplay: boolean;
+}
+
+/**
+ * Expected shape of the table-editor custom field JSON payload.
+ * `data` travels as the GraphQL JSON scalar, so it arrives untyped —
+ * DataTable validates it defensively at render time (decision #4).
+ */
+export interface TableBlockData {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface TableBlockProps {
+  title: string | null;
+  description: string | null;
+  data: unknown;
+}
+
 // ---------------------------------------------------------------------------
 // Magazine archive block
 // ---------------------------------------------------------------------------
@@ -273,4 +308,8 @@ export type SDUIBlock =
   | ({ __component: "blocks.section" } & SectionProps) // nested SDUI container (ADR-1)
   | ({ __component: "blocks.form" } & FormBlockProps)
   | ({ __component: "blocks.magazine-archive" } & MagazineArchiveProps)
+  | ({ __component: "blocks.accordion" } & AccordionBlockProps)
+  | ({ __component: "blocks.tabs" } & TabsBlockProps)
+  | ({ __component: "blocks.carousel" } & CarouselBlockProps)
+  | ({ __component: "blocks.table" } & TableBlockProps)
   | { __component: string }; // forward-compat fallback for unknown blocks
