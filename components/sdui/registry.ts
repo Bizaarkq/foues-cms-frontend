@@ -33,6 +33,10 @@ import MapSchedule from "./blocks/MapSchedule";
 import Section from "./blocks/Section";
 import DynamicFormBlock from "./blocks/DynamicFormBlock";
 import MagazineArchive from "./blocks/MagazineArchive";
+import AccordionBlock from "./blocks/Accordion";
+import TabsBlock from "./blocks/Tabs";
+import CarouselBlock from "./blocks/Carousel";
+import DataTable from "./blocks/DataTable";
 
 export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.hero-landing": HeroLanding,
@@ -57,4 +61,8 @@ export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.section": Section,
   "blocks.form": DynamicFormBlock,
   "blocks.magazine-archive": MagazineArchive,
+  "blocks.accordion": AccordionBlock,
+  "blocks.tabs": TabsBlock,
+  "blocks.carousel": CarouselBlock,
+  "blocks.table": DataTable,
 };
