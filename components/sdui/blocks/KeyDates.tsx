@@ -113,7 +113,7 @@ function CalendarGrid({ items }: { items: DateEntry[] }) {
       </div>
 
       {/* Day grid */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
         {cells.map((day, i) => {
           if (day === null) {
             return <div key={`blank-${i}`} className="aspect-square" />;
@@ -127,7 +127,7 @@ function CalendarGrid({ items }: { items: DateEntry[] }) {
               key={day}
               title={tooltipLabel || undefined}
               className={[
-                "aspect-square flex items-center justify-center rounded-md text-sm",
+                "aspect-square flex items-center justify-center rounded-md text-xs sm:text-sm",
                 isHighlighted ? "font-semibold" : "",
               ].join(" ")}
               style={

@@ -9,7 +9,7 @@ export default function HeroLanding({ title, subtitle, backgroundImage, buttons 
 
   return (
     <section
-      className="relative isolate flex h-[600px] w-full items-center overflow-hidden"
+      className="relative isolate flex h-[420px] w-full items-center overflow-hidden md:h-[600px]"
       style={{ backgroundColor: "var(--color-foues-navy)" }}
     >
       {imgUrl && (
@@ -40,7 +40,7 @@ export default function HeroLanding({ title, subtitle, backgroundImage, buttons 
       <div className="relative max-w-[1920px] mx-auto px-6">
         <div className="max-w-2xl text-white">
           {title && (
-            <h1 className="text-5xl font-bold leading-tight lg:text-6xl">{title}</h1>
+            <h1 className="text-3xl font-bold leading-tight sm:text-4xl md:text-5xl lg:text-6xl">{title}</h1>
           )}
 
           {subtitle && (
