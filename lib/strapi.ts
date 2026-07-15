@@ -920,7 +920,7 @@ const MAGAZINE_ISSUE_BY_SLUG_QUERY = /* GraphQL */ `
       date
       description
       pdf { url }
-      pages { url width height }
+      pages(pagination: { limit: -1 }) { url width height }
       conversionStatus
       publishedAt
       publication { documentId }

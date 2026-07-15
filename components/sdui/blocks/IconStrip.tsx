@@ -55,7 +55,7 @@ function IconStripItem({ item }: { item: QuickLinkItem }) {
     <li>
       <Link
         href={item.url}
-        className="hover:opacity-70 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-foues-input-focus-ring)]"
+        className="hover:opacity-70 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-foues-input-focus-ring)]"
       >
         {content}
       </Link>
