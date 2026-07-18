@@ -34,6 +34,7 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 - `STRAPI_API_TOKEN` (GraphQL read) / `FORM_SUBMIT_TOKEN` (form fetch + submission create only) / `MAGAZINE_TRACK_TOKEN` (track endpoint only) — restricted tokens created by `../foues-cms-api/scripts/create-api-tokens.js`.
 - `AUTH_SECRET`, `AUTH_URL`, `GOOGLE_CLIENT_ID/SECRET` — NextAuth v5. A test OAuth client exists and works on the test server.
 - `REVALIDATE_SECRET` — shared secret for the Strapi → `/api/revalidate` webhook.
+- `SITE_URL` — optional; canonical public origin for metadata/sitemap/robots (e.g. `https://odontologia.ues.edu.sv`). Falls back to `AUTH_URL`; normalized without a trailing slash (`env.siteUrl`).
 - `next.config.ts` deliberately does NOT import `lib/env.ts` (runtime vars are unavailable during `docker build`); the Dockerfile passes build-placeholder ARGs for runtime-only vars and real ARGs only for `STRAPI_URL`/`STRAPI_PUBLIC_URL`/tokens needed at build.
 
 ## Architecture: SDUI rendering
@@ -85,6 +86,14 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 - `app/layout.tsx` injects a pre-paint script (reads `localStorage['foues-theme']`, sets `data-foues-theme='dark'` before first paint — no flash) and `<ThemeVars/>`.
 - `ThemeVars` (RSC) fetches the admin-editable palette (`getGlobalTheme()`, single type `global-theme` in Strapi; requires public `find` permission — falls back to hardcoded defaults on any failure) and emits `--color-foues-*` CSS variables for light/dark. Components style with those vars, never raw colors.
 - `ThemeToggle` (client) persists the preference.
+
+## SEO
+
+- **Per-page metadata**: `generateMetadata` in the catch-all consumes the same React.cache-wrapped `resolvePath()` as the page render (getPageByPath is a POST — Next only memoizes GET, so cache() dedupes the two calls). CMS override via the `shared.seo` component on `page` (`meta_title`/`meta_description`/`og_image`/`no_index`, mapped to `PageData.seo`); fallbacks derived in `lib/seo.ts`: title = page title/route label, description mined from hero subtitles or the first rich-text block, og:image from the first hero background.
+- **noindex rules**: non-public routes (visibility `requires-login` or `allowed_roles` non-empty) are ALWAYS `robots: noindex, nofollow`, regardless of CMS SEO settings; magazine editions and `/pagina/{n}` virtual paths inherit the parent route's gate.
+- **`app/sitemap.ts`**: home + public active `type: page` routes (`getIndexableRoutes()`, visibility/role filtering in JS — enum underscore gotcha) + published articles (`getSitemapArticles()`). Magazine edition URLs are deliberately excluded in v1 — discoverable via their archive pages.
+- **`app/robots.ts`**: allow all, disallow `/api/` and `/login`, points to the sitemap.
+- **JSON-LD** via `jsonLdScriptProps()` (escapes `<`): global `EducationalOrganization` in `app/layout.tsx`, `NewsArticle` on `/articulos/[slug]`.
 
 ## Decisions (consolidated — formerly ADRs)
 

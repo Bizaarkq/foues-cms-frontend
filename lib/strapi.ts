@@ -433,6 +433,12 @@ const PAGE_BY_PATH_QUERY = /* GraphQL */ `
         documentId
         title
         layout
+        seo {
+          meta_title
+          meta_description
+          no_index
+          og_image { documentId url alternativeText width height mime name }
+        }
         content {
           ${TOP_LEVEL_BLOCK_FRAGMENTS}
         }
@@ -589,6 +595,12 @@ interface PageByPathResponse {
       documentId: string;
       title: string;
       layout: "default" | "full-width";
+      seo: {
+        meta_title: string | null;
+        meta_description: string | null;
+        no_index: boolean | null;
+        og_image: StrapiMedia | null;
+      } | null;
       content: RawBlock[];
     } | null;
   }>;
@@ -712,6 +724,14 @@ export async function getPageByPath(
               documentId: rawRoute.page.documentId,
               title: rawRoute.page.title,
               layout: rawRoute.page.layout,
+              seo: rawRoute.page.seo
+                ? {
+                    metaTitle: rawRoute.page.seo.meta_title,
+                    metaDescription: rawRoute.page.seo.meta_description,
+                    ogImage: rawRoute.page.seo.og_image,
+                    noIndex: rawRoute.page.seo.no_index ?? false,
+                  }
+                : null,
               content: normalizeBlocks(rawRoute.page.content),
             }
           : null,
@@ -916,6 +936,7 @@ const MAGAZINE_ISSUE_BY_SLUG_QUERY = /* GraphQL */ `
       number
       date
       description
+      cover { documentId url alternativeText width height mime name }
       pdf { url }
       pages(pagination: { limit: -1 }) { url width height }
       conversionStatus
@@ -1056,6 +1077,7 @@ const ARTICLE_BY_SLUG_QUERY = /* GraphQL */ `
     articles(filters: { slug: { eq: $slug } }, pagination: { limit: 1 }) {
       ${ARTICLE_LIST_FIELDS}
       content
+      updatedAt
     }
   }
 `;
@@ -1127,5 +1149,111 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
   } catch (err) {
     console.error(`[strapi] getArticleBySlug("${slug}") failed:`, err);
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sitemap sources (app/sitemap.ts)
+// ---------------------------------------------------------------------------
+
+/** Sitemap entry source: a public, active page route. */
+export interface IndexableRoute {
+  path: string;
+  lastModified: string | null;
+}
+
+const INDEXABLE_ROUTES_QUERY = /* GraphQL */ `
+  query IndexableRoutes {
+    routes(filters: { active: { eq: true } }, pagination: { limit: -1 }) {
+      path
+      type
+      visibility
+      updatedAt
+      allowed_roles { key }
+      page { documentId updatedAt }
+    }
+  }
+`;
+
+interface IndexableRoutesResponse {
+  routes: Array<{
+    path: string;
+    type: "page" | "section" | "header";
+    visibility?: string | null; // GraphQL serialises the enum as 'requires_login' (no hyphens allowed)
+    updatedAt: string | null;
+    allowed_roles?: RawAllowedRoles;
+    page: { documentId: string; updatedAt: string | null } | null;
+  }>;
+}
+
+/**
+ * getIndexableRoutes — public, active page routes for the sitemap.
+ *
+ * Visibility/role filtering happens in JS, NOT in GraphQL: the visibility
+ * enum serialises as `requires_login` (underscore gotcha), so we normalise
+ * with normalizeVisibility() first. Only `type: page` routes with a page,
+ * public visibility and no role restriction are indexable.
+ *
+ * Returns an empty array on failure (the sitemap degrades to fixed entries).
+ */
+export async function getIndexableRoutes(): Promise<IndexableRoute[]> {
+  try {
+    const data = await gql<IndexableRoutesResponse>(INDEXABLE_ROUTES_QUERY, undefined, {
+      tags: ["routes", "pages"],
+    });
+    return data.routes
+      .filter(
+        (r) =>
+          r.type === "page" &&
+          normalizeVisibility(r.visibility) === "public" &&
+          mapAllowedRoles(r.allowed_roles).length === 0 &&
+          r.page !== null
+      )
+      .map((r) => ({
+        path: r.path,
+        lastModified: r.page?.updatedAt ?? r.updatedAt ?? null,
+      }));
+  } catch (err) {
+    console.error("[strapi] getIndexableRoutes() failed:", err);
+    return [];
+  }
+}
+
+/** Sitemap entry source: a published article. */
+export interface SitemapArticle {
+  slug: string;
+  lastModified: string | null;
+}
+
+const SITEMAP_ARTICLES_QUERY = /* GraphQL */ `
+  query SitemapArticles {
+    articles(sort: "publishedAt:desc", pagination: { limit: -1 }) {
+      slug
+      updatedAt
+    }
+  }
+`;
+
+interface SitemapArticlesResponse {
+  articles: Array<{ slug: string | null; updatedAt: string | null }>;
+}
+
+/**
+ * getSitemapArticles — every published article slug for the sitemap.
+ * Articles without a slug are skipped (no URL to index).
+ *
+ * Returns an empty array on failure (the sitemap degrades gracefully).
+ */
+export async function getSitemapArticles(): Promise<SitemapArticle[]> {
+  try {
+    const data = await gql<SitemapArticlesResponse>(SITEMAP_ARTICLES_QUERY, undefined, {
+      tags: ["articles"],
+    });
+    return data.articles.flatMap((a) =>
+      a.slug ? [{ slug: a.slug, lastModified: a.updatedAt ?? null }] : []
+    );
+  } catch (err) {
+    console.error("[strapi] getSitemapArticles() failed:", err);
+    return [];
   }
 }

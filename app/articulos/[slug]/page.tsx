@@ -19,6 +19,13 @@ import Link from "next/link";
 import { ArrowLeft, Calendar } from "lucide-react";
 import { getArticleBySlug, getPageByPath } from "@/lib/strapi";
 import { mediaUrl, mediaAlt } from "@/lib/media";
+import {
+  absoluteUrl,
+  jsonLdScriptProps,
+  stripMarkdown,
+  truncateDescription,
+} from "@/lib/seo";
+import { env } from "@/lib/env";
 import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
 import MarkdownContent from "@/components/sdui/MarkdownContent";
 import type { Article } from "@/types/collections";
@@ -46,6 +53,13 @@ function formatDate(article: Article): string | null {
   }).format(new Date(iso));
 }
 
+/** Meta description: CMS excerpt, else the article body stripped of markdown. */
+function articleDescription(article: Article): string | undefined {
+  if (article.excerpt) return article.excerpt;
+  if (article.content) return truncateDescription(stripMarkdown(article.content));
+  return undefined;
+}
+
 export async function generateMetadata(props: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
@@ -53,9 +67,31 @@ export async function generateMetadata(props: {
   const article = await getArticle(slug);
   if (!article) return {};
 
+  const description = articleDescription(article);
+  const canonical = absoluteUrl(`/articulos/${slug}`);
+  const imgUrl = mediaUrl(article.image);
+
   return {
     title: article.Title,
-    description: article.excerpt ?? undefined,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "article",
+      title: article.Title,
+      description,
+      url: canonical,
+      publishedTime: article.publishedAt ?? undefined,
+      images: imgUrl
+        ? [
+            {
+              url: imgUrl,
+              alt: mediaAlt(article.image, article.Title),
+              ...(article.image?.width != null ? { width: article.image.width } : {}),
+              ...(article.image?.height != null ? { height: article.image.height } : {}),
+            },
+          ]
+        : undefined,
+    },
   };
 }
 
@@ -76,8 +112,27 @@ export default async function ArticlePage(props: {
   const imgAlt = mediaAlt(article.image, article.Title);
   const formattedDate = formatDate(article);
 
+  const articleUrl = absoluteUrl(`/articulos/${slug}`);
+  const description = articleDescription(article);
+  const newsArticleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: article.Title,
+    ...(article.publishedAt ? { datePublished: article.publishedAt } : {}),
+    ...(article.updatedAt ? { dateModified: article.updatedAt } : {}),
+    ...(description ? { description } : {}),
+    ...(imgUrl ? { image: [imgUrl] } : {}),
+    mainEntityOfPage: articleUrl,
+    publisher: {
+      "@type": "EducationalOrganization",
+      name: "Facultad de Odontología — Universidad de El Salvador",
+      url: env.siteUrl,
+    },
+  };
+
   return (
     <DefaultLayout navbar={chrome.navbar} footer={chrome.footer}>
+      <script {...jsonLdScriptProps(newsArticleJsonLd)} />
       <article className="w-full max-w-4xl mx-auto">
         {/* Back link */}
         <Link

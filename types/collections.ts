@@ -20,4 +20,6 @@ export interface Article {
   /** ISO datetime; meaningful only when category = "event". */
   event_date: string | null;
   publishedAt: string | null;
+  /** Selected only by the by-slug query (JSON-LD dateModified). */
+  updatedAt?: string | null;
 }

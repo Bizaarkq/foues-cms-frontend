@@ -7,8 +7,10 @@
  *
  * Data flow:
  *   1. Normalize slug → path string (e.g. ["posgrado","admision"] → "/posgrado/admision")
- *   2. getPageByPath(path) — single unified GraphQL query, cached 24h (Decision #9)
- *   3. No route → magazine-edition fallback (see below) → 404.
+ *   2. resolvePath(path) — React.cache-wrapped resolver shared by the Page
+ *      component and generateMetadata (getPageByPath is a POST fetch, which
+ *      Next does NOT memoize — cache() dedupes the two calls per request).
+ *   3. Discriminated union decides: page | magazine-issue | paginated-list | not-found.
  *   4. Select layout wrapper based on page.layout enum.
  *   5. BlockRenderer dispatches each block to its registered component.
  *
@@ -28,15 +30,27 @@
  *   canonical at the parent path itself, so `/pagina/1` redirects there.
  */
 
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getPageByPath } from "@/lib/strapi";
+import { getCachedMagazineIssue } from "@/lib/cached";
 import { auth } from "@/lib/auth";
+import { mediaUrl } from "@/lib/media";
+import {
+  absoluteUrl,
+  findBlocksByComponent,
+  firstHeroImage,
+  mineDescription,
+  truncateDescription,
+} from "@/lib/seo";
 import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
 import { FullWidthLayout } from "@/components/sdui/layouts/FullWidthLayout";
 import { BlockRenderer } from "@/components/sdui/BlockRenderer";
 import { MagazineViewer } from "@/components/magazine/MagazineViewer";
-import type { SDUIBlock, MagazineArchiveProps, SectionProps } from "@/types/blocks";
-import type { PageQueryResult } from "@/types/page";
+import type { MagazineArchiveProps } from "@/types/blocks";
+import type { PageQueryResult, RouteData } from "@/types/page";
+import type { StrapiMedia } from "@/types/strapi";
 
 /**
  * Authoritative access gate (Spec B + gating por rol, spec sesión §7):
@@ -67,122 +81,270 @@ async function enforceRouteAccess(route: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Path resolution — shared by the Page component and generateMetadata
+// ---------------------------------------------------------------------------
+
+type ResolvedPath =
+  | { kind: "page"; data: PageQueryResult; path: string }
+  | {
+      kind: "magazine-issue";
+      issueSlug: string;
+      parentData: PageQueryResult;
+      parentPath: string;
+    }
+  | {
+      kind: "paginated-list";
+      data: PageQueryResult;
+      /** Parent path — the page holding the article-list block. */
+      path: string;
+      pageNumber: number;
+    }
+  | { kind: "not-found" };
+
 /**
- * Collects every block of a given __component in a page's content, including
- * those nested inside blocks.section groups (max depth 2 by design).
+ * Resolves a URL path to one of the four render kinds WITHOUT calling
+ * notFound()/redirect() — consumers decide. Wrapped in React cache() so the
+ * Page component and generateMetadata share the underlying getPageByPath
+ * POST fetches within a request.
  */
-function findBlocksByComponent<T>(blocks: SDUIBlock[], component: string): T[] {
-  const found: T[] = [];
-  for (const block of blocks) {
-    if (block.__component === component) {
-      found.push(block as T);
-    } else if (block.__component === "blocks.section") {
-      const section = block as unknown as SectionProps;
-      for (const group of section.children ?? []) {
-        found.push(...findBlocksByComponent<T>(group.blocks, component));
+const resolvePath = cache(async (path: string): Promise<ResolvedPath> => {
+  const segments = path.split("/").filter(Boolean);
+
+  const data = await getPageByPath(path);
+
+  // Hard failure: Strapi request returned nothing at all
+  if (!data) return { kind: "not-found" };
+
+  if (data.route && data.route.page) {
+    return { kind: "page", data, path };
+  }
+
+  // Article-pagination virtual child: `{parentPath}/pagina/{n}` re-renders
+  // the parent page (if it holds an article-list block) with pageNumber n.
+  if (segments.length >= 3 && segments[segments.length - 2] === "pagina") {
+    const pageSegment = segments[segments.length - 1];
+    const pageNumber = /^\d+$/.test(pageSegment) ? Number(pageSegment) : NaN;
+    if (!Number.isInteger(pageNumber) || pageNumber < 1) {
+      return { kind: "not-found" };
+    }
+
+    const parentPath = "/" + segments.slice(0, -2).join("/");
+    const parentData = await getPageByPath(parentPath);
+    const parentPage = parentData?.route?.page;
+
+    if (parentData?.route && parentPage) {
+      const hasArticleList =
+        findBlocksByComponent(parentPage.content, "blocks.article-list").length > 0;
+
+      if (hasArticleList) {
+        return { kind: "paginated-list", data: parentData, path: parentPath, pageNumber };
+      }
+    }
+
+    return { kind: "not-found" };
+  }
+
+  // Magazine-edition fallback: does the parent path hold an archive block?
+  if (segments.length >= 2) {
+    const issueSlug = segments[segments.length - 1];
+    const parentPath = "/" + segments.slice(0, -1).join("/");
+    const parentData = await getPageByPath(parentPath);
+    const parentPage = parentData?.route?.page;
+
+    if (parentData?.route && parentPage) {
+      const archives = findBlocksByComponent<MagazineArchiveProps>(
+        parentPage.content,
+        "blocks.magazine-archive"
+      );
+
+      if (archives.length > 0) {
+        return { kind: "magazine-issue", issueSlug, parentData, parentPath };
       }
     }
   }
-  return found;
+
+  return { kind: "not-found" };
+});
+
+// ---------------------------------------------------------------------------
+// Metadata
+// ---------------------------------------------------------------------------
+
+/** og:image entry from a Strapi media, with alt/dimensions when present. */
+function ogImages(media: StrapiMedia | null) {
+  const url = mediaUrl(media);
+  if (!url) return undefined;
+  return [
+    {
+      url,
+      ...(media?.alternativeText ? { alt: media.alternativeText } : {}),
+      ...(media?.width != null ? { width: media.width } : {}),
+      ...(media?.height != null ? { height: media.height } : {}),
+    },
+  ];
 }
+
+/** Non-public routes must never be indexed, regardless of CMS SEO settings. */
+function isGatedRoute(route: RouteData): boolean {
+  return route.visibility !== "public" || route.allowedRoles.length > 0;
+}
+
+/**
+ * Metadata for a resolved SDUI page. `pageNumber` > 1 marks a `/pagina/{n}`
+ * virtual child: same parent pipeline, suffixed title, canonical on the
+ * virtual path itself.
+ */
+function pageMetadata(data: PageQueryResult, path: string, pageNumber = 1): Metadata {
+  const route = data.route!;
+  const page = route.page!;
+  const seo = page.seo;
+
+  const baseTitle = seo?.metaTitle ?? page.title ?? route.label ?? undefined;
+  const title =
+    pageNumber > 1 && baseTitle ? `${baseTitle} — Página ${pageNumber}` : baseTitle;
+  const description = seo?.metaDescription ?? mineDescription(page.content) ?? undefined;
+  const canonical = absoluteUrl(
+    pageNumber > 1 ? `${path}/pagina/${pageNumber}` : path
+  );
+  const noIndex = (seo?.noIndex ?? false) || isGatedRoute(route);
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "website",
+      images: ogImages(seo?.ogImage ?? firstHeroImage(page.content)),
+    },
+    ...(noIndex ? { robots: { index: false, follow: false } } : {}),
+  };
+}
+
+/** Metadata for a magazine edition (virtual path under its archive page). */
+async function magazineIssueMetadata(
+  resolved: Extract<ResolvedPath, { kind: "magazine-issue" }>
+): Promise<Metadata> {
+  const issue = await getCachedMagazineIssue(resolved.issueSlug);
+  if (!issue) return {};
+
+  const title = issue.title;
+  const description = issue.description
+    ? truncateDescription(issue.description)
+    : undefined;
+  const canonical = absoluteUrl(`${resolved.parentPath}/${resolved.issueSlug}`);
+  // Editions inherit the archive page's visibility gate — and its noindex.
+  const noIndex = isGatedRoute(resolved.parentData.route!);
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "website",
+      images: ogImages(issue.cover),
+    },
+    ...(noIndex ? { robots: { index: false, follow: false } } : {}),
+  };
+}
+
+export async function generateMetadata(props: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await props.params;
+  const path = "/" + (slug ?? []).join("/");
+
+  const resolved = await resolvePath(path);
+
+  switch (resolved.kind) {
+    case "page":
+      return pageMetadata(resolved.data, resolved.path);
+    case "paginated-list":
+      // pageNumber 1 falls back to the plain-page shape (`/pagina/1`
+      // redirects to the parent path, so it is described as the parent).
+      return pageMetadata(resolved.data, resolved.path, resolved.pageNumber);
+    case "magazine-issue":
+      return magazineIssueMetadata(resolved);
+    default:
+      return {};
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
 }) {
   const { slug } = await props.params;
-  const segments = slug ?? [];
-  const path = "/" + segments.join("/");
+  const path = "/" + (slug ?? []).join("/");
 
-  const data = await getPageByPath(path);
+  const resolved = await resolvePath(path);
 
-  // Hard failure: Strapi request returned nothing at all
-  if (!data) {
-    notFound();
-  }
+  switch (resolved.kind) {
+    case "page": {
+      // Spec B — "Server Component Visibility Enforcement"
+      // Proxy does no auth; this is the authoritative CMS-driven gate.
+      await enforceRouteAccess(resolved.data.route!);
+      return renderPage(resolved.data, resolved.path, 1);
+    }
 
-  if (!data.route || !data.route.page) {
-    // Article-pagination virtual child: `{parentPath}/pagina/{n}` re-renders
-    // the parent page (if it holds an article-list block) with pageNumber n.
-    if (segments.length >= 3 && segments[segments.length - 2] === "pagina") {
-      const pageSegment = segments[segments.length - 1];
-      const pageNumber = /^\d+$/.test(pageSegment) ? Number(pageSegment) : NaN;
-      if (!Number.isInteger(pageNumber) || pageNumber < 1) notFound();
-
-      const parentPath = "/" + segments.slice(0, -2).join("/");
-
+    case "paginated-list": {
       // Page 1 is canonical at the parent path itself.
-      if (pageNumber === 1) redirect(parentPath);
+      if (resolved.pageNumber === 1) redirect(resolved.path);
 
-      const parentData = await getPageByPath(parentPath);
-      const parentPage = parentData?.route?.page;
+      // Virtual pages inherit the parent route's visibility/role gate.
+      await enforceRouteAccess(resolved.data.route!);
+      return renderPage(resolved.data, resolved.path, resolved.pageNumber);
+    }
 
-      if (parentData?.route && parentPage) {
-        const hasArticleList =
-          findBlocksByComponent(parentPage.content, "blocks.article-list").length > 0;
+    case "magazine-issue": {
+      const { parentData, parentPath, issueSlug } = resolved;
 
-        if (hasArticleList) {
-          // Virtual pages inherit the parent route's visibility/role gate.
-          await enforceRouteAccess(parentData.route);
-          return renderPage(parentData, parentPath, pageNumber);
-        }
-      }
+      // Editions inherit the archive page's visibility/role gate.
+      await enforceRouteAccess(parentData.route!);
 
+      const archives = findBlocksByComponent<MagazineArchiveProps>(
+        parentData.route!.page!.content,
+        "blocks.magazine-archive"
+      );
+
+      // Union of the publications selected across the page's archive
+      // blocks; any block with no selection opens the door to all.
+      const allowAll = archives.some(
+        (a) => !a.publications || a.publications.length === 0
+      );
+      const allowedPublicationIds = allowAll
+        ? null
+        : [
+            ...new Set(
+              archives.flatMap((a) =>
+                (a.publications ?? []).map((p) => p.documentId)
+              )
+            ),
+          ];
+
+      return (
+        <MagazineViewer
+          slug={issueSlug}
+          backHref={parentPath}
+          allowedPublicationIds={allowedPublicationIds}
+          navbar={parentData.navbar}
+          footer={parentData.footer}
+        />
+      );
+    }
+
+    default:
       notFound();
-    }
-
-    // Magazine-edition fallback: does the parent path hold an archive block?
-    if (segments.length >= 2) {
-      const editionSlug = segments[segments.length - 1];
-      const parentPath = "/" + segments.slice(0, -1).join("/");
-      const parentData = await getPageByPath(parentPath);
-      const parentPage = parentData?.route?.page;
-
-      if (parentData?.route && parentPage) {
-        const archives = findBlocksByComponent<MagazineArchiveProps>(
-          parentPage.content,
-          "blocks.magazine-archive"
-        );
-
-        if (archives.length > 0) {
-          // Editions inherit the archive page's visibility/role gate.
-          await enforceRouteAccess(parentData.route);
-
-          // Union of the publications selected across the page's archive
-          // blocks; any block with no selection opens the door to all.
-          const allowAll = archives.some(
-            (a) => !a.publications || a.publications.length === 0
-          );
-          const allowedPublicationIds = allowAll
-            ? null
-            : [
-                ...new Set(
-                  archives.flatMap((a) =>
-                    (a.publications ?? []).map((p) => p.documentId)
-                  )
-                ),
-              ];
-
-          return (
-            <MagazineViewer
-              slug={editionSlug}
-              backHref={parentPath}
-              allowedPublicationIds={allowedPublicationIds}
-              navbar={parentData.navbar}
-              footer={parentData.footer}
-            />
-          );
-        }
-      }
-    }
-
-    notFound();
   }
-
-  // Spec B — "Server Component Visibility Enforcement"
-  // Proxy does no auth; this is the authoritative CMS-driven gate.
-  await enforceRouteAccess(data.route);
-
-  return renderPage(data, path, 1);
 }
 
 /**

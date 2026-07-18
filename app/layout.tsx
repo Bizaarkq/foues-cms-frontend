@@ -3,10 +3,31 @@ import "./globals.css";
 import { ThemeVars } from "@/components/ThemeVars";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
+import { env } from "@/lib/env";
+import { jsonLdScriptProps } from "@/lib/seo";
+
+const SITE_NAME = "Facultad de Odontología — Universidad de El Salvador";
 
 export const metadata: Metadata = {
-  title: "FOUES",
+  metadataBase: new URL(env.siteUrl),
+  title: {
+    default: "FOUES — Facultad de Odontología, Universidad de El Salvador",
+    template: "%s | FOUES",
+  },
   description: "Facultad de Odontología — Universidad de El Salvador",
+  openGraph: {
+    siteName: SITE_NAME,
+    locale: "es_SV",
+    type: "website",
+  },
+};
+
+// Global JSON-LD: the faculty as an EducationalOrganization.
+const ORGANIZATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "EducationalOrganization",
+  name: SITE_NAME,
+  url: env.siteUrl,
 };
 
 // Pre-paint script (FR-04 / NFR-02): runs synchronously before first paint,
@@ -37,6 +58,7 @@ export default function RootLayout({
         <ThemeVars />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--color-foues-surface)]">
+        <script {...jsonLdScriptProps(ORGANIZATION_JSON_LD)} />
         <SessionProviderWrapper>
           {children}
         </SessionProviderWrapper>
