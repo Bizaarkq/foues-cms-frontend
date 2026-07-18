@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { childPath } from "@/lib/paths";
 
 interface PaginationNavProps {
   /** Path of the page holding the block ("" or "/" for the home page). */
@@ -22,9 +23,8 @@ const pageLinkClass =
 export function PaginationNav({ basePath, currentPage, pageCount }: PaginationNavProps) {
   if (pageCount <= 1) return null;
 
-  // "/" would produce "//pagina/n"; normalise the home path to "".
-  const base = basePath === "/" ? "" : basePath;
-  const hrefFor = (n: number) => (n === 1 ? base || "/" : `${base}/pagina/${n}`);
+  const parent = basePath || "/";
+  const hrefFor = (n: number) => (n === 1 ? parent : childPath(parent, `pagina/${n}`));
 
   const pages = Array.from({ length: pageCount }, (_, i) => i + 1);
 
