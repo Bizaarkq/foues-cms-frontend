@@ -122,27 +122,27 @@ const resolvePath = cache(async (path: string): Promise<ResolvedPath> => {
 
   // Article-pagination virtual child: `{parentPath}/pagina/{n}` re-renders
   // the parent page (if it holds an article-list block) with pageNumber n.
+  // No early not-found here: a CMS page whose own path ends in the literal
+  // segment "pagina" can hold a magazine archive, so a failed pagination
+  // match must still fall through to the magazine-edition fallback below.
   if (segments.length >= 3 && segments[segments.length - 2] === "pagina") {
     const pageSegment = segments[segments.length - 1];
     const pageNumber = /^\d+$/.test(pageSegment) ? Number(pageSegment) : NaN;
-    if (!Number.isInteger(pageNumber) || pageNumber < 1) {
-      return { kind: "not-found" };
-    }
 
-    const parentPath = "/" + segments.slice(0, -2).join("/");
-    const parentData = await getPageByPath(parentPath);
-    const parentPage = parentData?.route?.page;
+    if (Number.isInteger(pageNumber) && pageNumber >= 1) {
+      const parentPath = "/" + segments.slice(0, -2).join("/");
+      const parentData = await getPageByPath(parentPath);
+      const parentPage = parentData?.route?.page;
 
-    if (parentData?.route && parentPage) {
-      const hasArticleList =
-        findBlocksByComponent(parentPage.content, "blocks.article-list").length > 0;
+      if (parentData?.route && parentPage) {
+        const hasArticleList =
+          findBlocksByComponent(parentPage.content, "blocks.article-list").length > 0;
 
-      if (hasArticleList) {
-        return { kind: "paginated-list", data: parentData, path: parentPath, pageNumber };
+        if (hasArticleList) {
+          return { kind: "paginated-list", data: parentData, path: parentPath, pageNumber };
+        }
       }
     }
-
-    return { kind: "not-found" };
   }
 
   // Magazine-edition fallback: does the parent path hold an archive block?
