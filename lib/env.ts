@@ -24,6 +24,9 @@ const REVALIDATE_SECRET = required("REVALIDATE_SECRET", process.env.REVALIDATE_S
 
 const MAGAZINE_TRACK_TOKEN = required("MAGAZINE_TRACK_TOKEN", process.env.MAGAZINE_TRACK_TOKEN);
 
+const DOCUMENT_TOKEN = required("DOCUMENT_TOKEN", process.env.DOCUMENT_TOKEN);
+const DOCUMENT_ACCESS_SECRET = required("DOCUMENT_ACCESS_SECRET", process.env.DOCUMENT_ACCESS_SECRET);
+
 const SITE_USER_TOKEN = required("SITE_USER_TOKEN", process.env.SITE_USER_TOKEN);
 
 // Opcional — URL del Campus Virtual en la barra superior del navbar.
@@ -60,6 +63,8 @@ export const env = {
   },
   revalidateSecret: REVALIDATE_SECRET,
   magazineTrackToken: MAGAZINE_TRACK_TOKEN,
+  documentToken: DOCUMENT_TOKEN,
+  documentAccessSecret: DOCUMENT_ACCESS_SECRET,
   siteUserToken: SITE_USER_TOKEN,
   campusVirtualUrl: CAMPUS_VIRTUAL_URL,
   siteUrl: SITE_URL,

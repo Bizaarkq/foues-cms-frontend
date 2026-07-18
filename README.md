@@ -28,6 +28,8 @@ pnpm lint
 | `STRAPI_API_TOKEN` | Token de lectura GraphQL |
 | `FORM_SUBMIT_TOKEN` | Token restringido para envío de formularios |
 | `MAGAZINE_TRACK_TOKEN` | Token restringido para métricas de la revista |
+| `DOCUMENT_TOKEN` | Token restringido para leer/escribir el repositorio de documentos |
+| `DOCUMENT_ACCESS_SECRET` | Secreto compartido para leer archivos protegidos vía el middleware del CMS |
 | `AUTH_SECRET` / `AUTH_URL` / `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | NextAuth v5 (login Google restringido a `@ues.edu.sv`) |
 | `REVALIDATE_SECRET` | Secret del webhook de invalidación de cache |
 | `CAMPUS_VIRTUAL_URL` | (Opcional) URL del Campus Virtual en el navbar; sin valor, el link no se muestra |

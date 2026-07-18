@@ -22,7 +22,7 @@
 
 import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, MobileNavItem, FooterColumn } from "@/types/page";
 import type { SDUIBlock, BlockGroupContent, ArticleCategoryFilter } from "@/types/blocks";
-import type { Article } from "@/types/collections";
+import type { Article, DocumentCategory, RepoDocument } from "@/types/collections";
 import type { ButtonVariant } from "@/types/elements";
 import type { StrapiMedia } from "@/types/strapi";
 import { env } from "./env";
@@ -104,6 +104,7 @@ const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksSection: "blocks.section",
   ComponentBlocksForm: "blocks.form",
   ComponentBlocksMagazineArchive: "blocks.magazine-archive",
+  ComponentBlocksDocumentRepository: "blocks.document-repository",
   ComponentBlocksAccordion: "blocks.accordion",
   ComponentBlocksTabs: "blocks.tabs",
   ComponentBlocksCarousel: "blocks.carousel",
@@ -354,6 +355,11 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
     __typename
     title
     publications { documentId name slug }
+  }
+  ... on ComponentBlocksDocumentRepository {
+    __typename
+    title
+    categories { documentId name slug }
   }
   ... on ComponentBlocksAccordion {
     __typename
@@ -1031,6 +1037,114 @@ export async function getAllReadyMagazineIssues(
   } catch (err) {
     console.error("[strapi] getAllReadyMagazineIssues() failed:", err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Document repository (stage 1 — read-only)
+// ---------------------------------------------------------------------------
+
+/** Raw category shape straight from GraphQL, pre role-key normalisation. */
+interface RawDocumentCategory {
+  documentId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  allowed_roles: RawAllowedRoles;
+}
+
+/** Raw document shape straight from GraphQL. */
+interface RawRepoDocument {
+  documentId: string;
+  title: string;
+  publishedAt: string | null;
+  file: { url: string; name: string; mime: string; size: number | null } | null;
+  category: { documentId: string } | null;
+}
+
+interface DocumentRepositoryResponse {
+  documentCategories: RawDocumentCategory[];
+  documents: RawRepoDocument[];
+}
+
+// $categoryFilters narrows the block to the selected categories; pass
+// null/omit for "all categories". Documents are fetched WITHOUT role
+// filtering — role gating happens in JS in the RSC, never baked into the
+// cached fetch (design doc §"Frontend: SDUI block").
+const DOCUMENT_REPOSITORY_QUERY = /* GraphQL */ `
+  query DocumentRepositoryData(
+    $categoryFilters: DocumentCategoryFiltersInput
+    $documentFilters: DocumentFiltersInput
+  ) {
+    documentCategories(filters: $categoryFilters, pagination: { limit: 100 }) {
+      documentId
+      name
+      slug
+      description
+      allowed_roles { key }
+    }
+    documents(filters: $documentFilters, pagination: { limit: -1 }) {
+      documentId
+      title
+      publishedAt
+      file { url name mime size }
+      category { documentId }
+    }
+  }
+`;
+
+/**
+ * getDocumentRepositoryData — fetch document categories (optionally narrowed
+ * to the block's selected categories) plus all published documents, role
+ * mapping applied at this boundary (mapAllowedRoles pattern).
+ *
+ * Fails open to empty arrays on error — the block renders its empty state
+ * rather than crashing the page.
+ *
+ * @param categoryIds - When provided and non-empty, only these categories
+ *                      are returned (block selection). Omit for all categories.
+ */
+export async function getDocumentRepositoryData(
+  categoryIds?: string[]
+): Promise<{ categories: DocumentCategory[]; documents: RepoDocument[] }> {
+  const categoryFilters =
+    categoryIds && categoryIds.length > 0
+      ? { documentId: { in: categoryIds } }
+      : undefined;
+  const documentFilters =
+    categoryIds && categoryIds.length > 0
+      ? { category: { documentId: { in: categoryIds } } }
+      : undefined;
+
+  try {
+    const data = await gql<DocumentRepositoryResponse>(
+      DOCUMENT_REPOSITORY_QUERY,
+      { categoryFilters, documentFilters },
+      { tags: ["documents"] }
+    );
+
+    const categories: DocumentCategory[] = data.documentCategories.map((c) => ({
+      documentId: c.documentId,
+      name: c.name,
+      slug: c.slug,
+      description: c.description,
+      allowedRoles: mapAllowedRoles(c.allowed_roles),
+    }));
+
+    const documents: RepoDocument[] = data.documents
+      .filter((d) => d.category !== null)
+      .map((d) => ({
+        documentId: d.documentId,
+        title: d.title,
+        file: d.file,
+        categoryId: d.category!.documentId,
+        publishedAt: d.publishedAt,
+      }));
+
+    return { categories, documents };
+  } catch (err) {
+    console.error("[strapi] getDocumentRepositoryData() failed:", err);
+    return { categories: [], documents: [] };
   }
 }
 

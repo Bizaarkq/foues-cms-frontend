@@ -31,7 +31,8 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 
 - `STRAPI_URL` — internal server-to-server URL (`http://cms:1337` in Docker).
 - `STRAPI_PUBLIC_URL` — browser-facing base for media URLs (falls back to `STRAPI_URL`). `lib/media.ts` and the magazine viewer resolve relative upload paths against it.
-- `STRAPI_API_TOKEN` (GraphQL read) / `FORM_SUBMIT_TOKEN` (form fetch + submission create only) / `MAGAZINE_TRACK_TOKEN` (track endpoint only) — restricted tokens created by `../foues-cms-api/scripts/create-api-tokens.js`.
+- `STRAPI_API_TOKEN` (GraphQL read) / `FORM_SUBMIT_TOKEN` (form fetch + submission create only) / `MAGAZINE_TRACK_TOKEN` (track endpoint only) / `DOCUMENT_TOKEN` (document repository REST reads + download-log writes only) — restricted tokens created by `../foues-cms-api/scripts/create-api-tokens.js`.
+- `DOCUMENT_ACCESS_SECRET` — shared secret sent as `x-document-access-secret` when the download proxy fetches a protected file from Strapi's `/uploads`; checked by a CMS-side middleware, not a Strapi API token.
 - `AUTH_SECRET`, `AUTH_URL`, `GOOGLE_CLIENT_ID/SECRET` — NextAuth v5. A test OAuth client exists and works on the test server.
 - `REVALIDATE_SECRET` — shared secret for the Strapi → `/api/revalidate` webhook.
 - `SITE_URL` — optional; canonical public origin for metadata/sitemap/robots (e.g. `https://odontologia.ues.edu.sv`). Falls back to `AUTH_URL`; normalized without a trailing slash (`env.siteUrl`).
@@ -55,8 +56,8 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 
 ## Caching & revalidation
 
-- All page data: `next: { revalidate: 86400 }` (24 h ISR) + tags `page:{path}`, `pages`, `routes`. Magazine queries tag `magazine-issues` / `magazine-issue:{slug}`. Theme query tags `routes`.
-- `app/api/revalidate/route.ts` — Strapi webhook target (secret via `x-revalidate-secret` header, `body.secret` fallback). Uses `revalidateTag(tag, { expire: 0 })` for immediate expiry. Model mapping: `route` → `routes`; `page` → `pages` + `page:{path}`; `magazine-issue` → `magazine-issues` + `magazine-issue:{slug}`; **any other model** → `pages` + `routes` (footer, global-theme, block-group, staff, organizational-unit and form all ride inside the unified page query, so every page fetch must expire). The Strapi-side webhook is configured in the CMS admin — it must have create/update/delete/publish/unpublish entry events enabled for ALL content types that feed rendering.
+- All page data: `next: { revalidate: 86400 }` (24 h ISR) + tags `page:{path}`, `pages`, `routes`. Magazine queries tag `magazine-issues` / `magazine-issue:{slug}`. Document repository queries tag `documents`. Theme query tags `routes`.
+- `app/api/revalidate/route.ts` — Strapi webhook target (secret via `x-revalidate-secret` header, `body.secret` fallback). Uses `revalidateTag(tag, { expire: 0 })` for immediate expiry. Model mapping: `route` → `routes`; `page` → `pages` + `page:{path}`; `magazine-issue` → `magazine-issues` + `magazine-issue:{slug}`; `document` / `document-category` → `documents`; **any other model** → `pages` + `routes` (footer, global-theme, block-group, staff, organizational-unit and form all ride inside the unified page query, so every page fetch must expire). The Strapi-side webhook is configured in the CMS admin — it must have create/update/delete/publish/unpublish entry events enabled for ALL content types that feed rendering.
 
 ## Auth
 
@@ -81,6 +82,15 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 - Beacons POST to `app/api/magazine-track/route.ts`, which validates and forwards server-to-server to Strapi with `MAGAZINE_TRACK_TOKEN` (never exposed to the browser). Tracking failures return 200 — reader experience is never degraded by metrics.
 - The archive grid is the `blocks.magazine-archive` SDUI block — a self-fetching async RSC (no fields from the page query).
 
+## Document repository (stage 1 — read-only)
+
+- `blocks.document-repository` — self-fetching async RSC (`components/sdui/blocks/DocumentRepository.tsx`), same pattern as `blocks.magazine-archive`. Block fields are just `title` + a `categories` relation (none selected = all). Anonymous visitors never see repository content: the block checks `auth()` first and renders a Spanish login prompt instead of fetching anything.
+- `getDocumentRepositoryData()` (`lib/strapi.ts`) fetches categories + published documents WITHOUT role filtering (cached, tag `documents`) — role gating happens per request in JS against the session role, same rule as `filterByVisibility` in the Navbar: a category is visible when its `allowed_roles` is empty (any logged-in user) or contains the session's role key. Never bake the role filter into the cached fetch.
+- Downloads never expose the raw Strapi `/uploads` URL: links point at `app/api/documents/[documentId]/route.ts`, which re-validates the session + category role gate server-to-server (mismatch → plain 404, never 403 — existence is not revealed), then streams the file with a sanitised `Content-Disposition: attachment` header.
+- The proxy authenticates two ways: `DOCUMENT_TOKEN` for the Strapi REST calls (fetch document/category metadata, POST the download log), and `DOCUMENT_ACCESS_SECRET` (header `x-document-access-secret`) for the raw file fetch, which a CMS-side middleware requires to let server-to-server reads through the protected "Documents" media folder.
+- The download log write is fire-and-forget via `after()` (`next/server`) scheduled once the file response is committed — a logging failure never affects the download (magazine-track precedent, applied post-response here since the file stream itself is the thing blocking the client).
+- Stage 2 (not yet built) adds site uploads: an upload Server Action, an upload UI in the block, and the approval/draft flow. See `docs/superpowers/specs/2026-07-18-document-repository-design.md`.
+
 ## Theming
 
 - `app/layout.tsx` injects a pre-paint script (reads `localStorage['foues-theme']`, sets `data-foues-theme='dark'` before first paint — no flash) and `<ThemeVars/>`.
@@ -104,7 +114,7 @@ Next.js 16 has breaking changes vs. training data — read `node_modules/next/di
 5. **Auth enforcement in the Server Component**, not middleware/proxy — the route's `visibility`/`allowed_roles` live in the CMS and are only known after the query resolves. Role gating reads the role from the JWT (set at login via track-login); changes apply on next login by design.
 6. **JWT sessions** — no session DB; keeps the stack stateless.
 7. **Server-side form re-fetch** — the client never defines what fields are valid.
-8. **Token-holding proxy routes** (`/api/magazine-track`) so restricted Strapi tokens never reach the browser.
+8. **Token-holding proxy routes** (`/api/magazine-track`, `/api/documents/[documentId]`) so restricted Strapi tokens never reach the browser.
 9. **`env.ts` fail-fast, `next.config.ts` decoupled from it** — Docker builds run without runtime secrets (placeholder ARGs).
 
 ## Known gaps

@@ -30,11 +30,11 @@ Three new content types (no hyphens in enum values — GraphQL underscore gotcha
 
 ### `document-category`
 - `name`, `slug`, `description`
-- `allowed_roles` — relation to roles (same pattern as `route.allowed_roles`); empty = any logged-in user
+- `allowed_roles` — relation to roles (same pattern as `route.allowed_roles`); empty = any logged-in user. The relation is one-way: `user-role` is not modified to point back at categories.
 - `upload_enabled` — boolean
 - `upload_roles` — relation to roles; who may upload when enabled
 - `requires_approval` — boolean
-- `media_folder` — reference to the media-library folder where this category's files are stored. All category folders live under a single root "Documents" folder so protection targets one folder tree.
+- Per-category media-folder mapping is **deferred to stage 2**. Stage 1 protection is tree-wide: all repository files live under a single root "Documents" media folder, and the CMS middleware blocks public access to anything under that folder regardless of which category owns it. A dedicated `media_folder` field per category (for stage-2 per-category folder routing) is not part of the stage 1 schema.
 
 ### `document`
 - `title`
@@ -72,6 +72,8 @@ Self-fetching async RSC, same pattern as `blocks.magazine-archive`:
 
 The browser never sees the real `/uploads` URL.
 
+**Shared-secret decision.** The proxy's server-to-server file read (step 4) sends header `x-document-access-secret: <DOCUMENT_ACCESS_SECRET>`. This is a second, separate credential from `DOCUMENT_TOKEN`: `DOCUMENT_TOKEN` authenticates the Strapi REST/GraphQL API calls (fetching document/category metadata, posting the download log); `DOCUMENT_ACCESS_SECRET` is checked by the CMS-side upload-serving middleware specifically to let the proxy's raw file fetch through the folder block — it is not a Strapi API token and grants no API access. Both live in `lib/env.ts` (`env.documentToken`, `env.documentAccessSecret`) and are never sent to the browser.
+
 ## Uploads (stage 2): Server Action
 
 `app/actions/submit-document.ts`, following the `submit-form` trust model — the client defines nothing:
@@ -82,13 +84,17 @@ The browser never sees the real `/uploads` URL.
 4. `revalidateTag('documents', { expire: 0 })` so published documents appear immediately.
 5. Rate limiting: covered by the existing Server Action rate limit in `proxy.ts`.
 
+**Stage-2 gotcha:** Strapi's built-in `POST /api/upload` controller force-assigns uploaded files to the "API Uploads" system folder — it does not accept a target folder from the request. Routing site-originated uploads into the repository's own "Documents" folder tree (so the stage-1 middleware protects them) therefore requires a **custom CMS controller/route** that calls the upload service and then moves/creates the `upload_file` row with the correct `folderPath`, rather than delegating to the default upload endpoint as-is.
+
 ## CMS middleware: closing the folder
 
 Custom global middleware in `foues-cms-api`, registered before `strapi::public`, intercepting `GET /uploads/*`.
 
-**Known gotcha:** media-library folders are virtual (DB-only) — the local provider stores all files flat in `/uploads`, so path-prefix blocking is impossible. The middleware must resolve the requested filename against `upload_files` and block when the file's folder falls anywhere under the root "Documents" folder tree, with an in-memory cache so regular site assets don't incur a DB hit per request. Server-to-server requests from the Next proxy pass via an internal header/token.
+**Known gotcha:** media-library folders are virtual (DB-only) — the local provider stores all files flat in `/uploads`, so path-prefix blocking on the filesystem path is impossible. The middleware must resolve the requested filename against `upload_files` and block when the file's folder falls anywhere under the root "Documents" folder tree, with an in-memory cache so regular site assets don't incur a DB hit per request. Server-to-server requests from the Next proxy pass via the `x-document-access-secret` header (see `DOCUMENT_ACCESS_SECRET` above).
 
-**Verification first:** middleware ordering vs `strapi::public` and the `upload_files` folder lookup must be confirmed against the real Strapi v5 code before implementation. This is the first task of the technical plan.
+**Verified facts** (confirmed against the real Strapi v5 core code, not assumed):
+- Strapi's `config.middlewares` array (where a custom global middleware is registered) runs entirely **before** the koa-router that dispatches to `strapi::public`'s static file handler — the uploads static handler is mounted later, at `strapi.server.listen()` time. This means a middleware registered ahead of `strapi::public` in `config/middlewares.ts` is guaranteed to see every `GET /uploads/*` request first; there is no ordering race to worry about.
+- Every row in `upload_files` (Strapi's file table) carries an indexed `folderPath` column (materialised path, e.g. `/1/3`), not just a `folder` foreign key — so the "does this file live under the Documents folder tree" check is a single indexed prefix comparison (`folderPath LIKE '/<documents-folder-id>%'`) rather than a recursive parent-folder walk per request. This is what makes the in-memory cache cheap: cache `filename → folderPath` and test the prefix on each request without hitting the DB.
 
 ## Caching & revalidation
 
