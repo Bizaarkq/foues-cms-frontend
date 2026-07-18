@@ -21,7 +21,8 @@
  */
 
 import type { PageQueryResult, RouteData, NavbarData, RouteNavItem, MobileNavItem, FooterColumn } from "@/types/page";
-import type { SDUIBlock, BlockGroupContent } from "@/types/blocks";
+import type { SDUIBlock, BlockGroupContent, ArticleCategoryFilter } from "@/types/blocks";
+import type { Article } from "@/types/collections";
 import type { ButtonVariant } from "@/types/elements";
 import type { StrapiMedia } from "@/types/strapi";
 import { env } from "./env";
@@ -83,7 +84,7 @@ export async function gql<T>(
 const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksHeroLanding: "blocks.hero-landing",
   ComponentBlocksHeroPage: "blocks.hero-page",
-  ComponentBlocksContentGrid: "blocks.content-grid",
+  ComponentBlocksArticleList: "blocks.article-list",
   ComponentBlocksPhotoGallery: "blocks.photo-gallery",
   ComponentBlocksQuickLinks: "blocks.quick-links",
   ComponentBlocksTimeline: "blocks.timeline",
@@ -211,17 +212,13 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
     backgroundImage { documentId url alternativeText width height mime name }
     gradient
   }
-  ... on ComponentBlocksContentGrid {
+  ... on ComponentBlocksArticleList {
     __typename
     title
-    collection_type
+    category_filter
+    page_size
     card_style
     columns
-    items {
-      title description
-      image { documentId url alternativeText width height mime name }
-      url tag customClasses
-    }
   }
   ... on ComponentBlocksPhotoGallery {
     __typename
@@ -1013,5 +1010,122 @@ export async function getAllReadyMagazineIssues(
   } catch (err) {
     console.error("[strapi] getAllReadyMagazineIssues() failed:", err);
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Articles (news / events)
+// ---------------------------------------------------------------------------
+
+/** Page slice of published articles plus the pagination totals. */
+export interface ArticlePage {
+  articles: Article[];
+  pagination: { total: number; page: number; pageSize: number; pageCount: number };
+}
+
+const ARTICLE_LIST_FIELDS = /* GraphQL */ `
+  documentId
+  Title
+  slug
+  excerpt
+  image { documentId url alternativeText width height mime name }
+  category
+  event_date
+  publishedAt
+`;
+
+// _connection variant: same collection but wrapped in { nodes, pageInfo } so
+// the list block gets the total needed to build /pagina/{n} links.
+const ARTICLES_QUERY = /* GraphQL */ `
+  query Articles($filters: ArticleFiltersInput, $page: Int!, $pageSize: Int!) {
+    articles_connection(
+      filters: $filters
+      sort: "publishedAt:desc"
+      pagination: { page: $page, pageSize: $pageSize }
+    ) {
+      nodes {
+        ${ARTICLE_LIST_FIELDS}
+      }
+      pageInfo { total page pageSize pageCount }
+    }
+  }
+`;
+
+const ARTICLE_BY_SLUG_QUERY = /* GraphQL */ `
+  query ArticleBySlug($slug: String!) {
+    articles(filters: { slug: { eq: $slug } }, pagination: { limit: 1 }) {
+      ${ARTICLE_LIST_FIELDS}
+      content
+    }
+  }
+`;
+
+interface ArticlesConnectionResponse {
+  articles_connection: {
+    nodes: Article[];
+    pageInfo: { total: number; page: number; pageSize: number; pageCount: number };
+  } | null;
+}
+
+interface ArticleBySlugResponse {
+  articles: Article[];
+}
+
+/**
+ * getArticles — published articles for the article-list block, newest first.
+ *
+ * @param category - "news" | "event" narrows the list; "all" (or omitted) does not.
+ * @param page     - 1-based page number (virtual `/pagina/{n}` child paths).
+ * @param pageSize - Items per page (block's `page_size`, 1–24 in the CMS).
+ *
+ * Returns an empty page on failure (the block renders its empty state).
+ */
+export async function getArticles({
+  category = "all",
+  page = 1,
+  pageSize = 9,
+}: {
+  category?: ArticleCategoryFilter;
+  page?: number;
+  pageSize?: number;
+}): Promise<ArticlePage> {
+  const filters: Record<string, unknown> = {};
+  if (category !== "all") filters.category = { eq: category };
+
+  const empty: ArticlePage = {
+    articles: [],
+    pagination: { total: 0, page, pageSize, pageCount: 0 },
+  };
+
+  try {
+    const data = await gql<ArticlesConnectionResponse>(
+      ARTICLES_QUERY,
+      { filters, page, pageSize },
+      { tags: ["articles"] }
+    );
+    const connection = data.articles_connection;
+    if (!connection) return empty;
+    return { articles: connection.nodes, pagination: connection.pageInfo };
+  } catch (err) {
+    console.error("[strapi] getArticles() failed:", err);
+    return empty;
+  }
+}
+
+/**
+ * getArticleBySlug — fetch a single published article (with body) by slug.
+ * Returns null when the slug does not exist, is unpublished, or the request fails.
+ */
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  try {
+    const data = await gql<ArticleBySlugResponse>(
+      ARTICLE_BY_SLUG_QUERY,
+      { slug },
+      { tags: [`article:${slug}`, "articles"] }
+    );
+    return data.articles[0] ?? null;
+  } catch (err) {
+    console.error(`[strapi] getArticleBySlug("${slug}") failed:`, err);
+    return null;
   }
 }

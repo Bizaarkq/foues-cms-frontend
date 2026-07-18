@@ -13,7 +13,7 @@ export type BlockComponent = ComponentType<any>;
 
 import HeroLanding from "./blocks/HeroLanding";
 import HeroPage from "./blocks/HeroPage";
-import ContentGrid from "./blocks/ContentGrid";
+import ArticleList from "./blocks/ArticleList";
 import PhotoGallery from "./blocks/PhotoGallery";
 import QuickLinks from "./blocks/QuickLinks";
 import Timeline from "./blocks/Timeline";
@@ -41,7 +41,7 @@ import DataTable from "./blocks/DataTable";
 export const blockRegistry: Record<string, BlockComponent> = {
   "blocks.hero-landing": HeroLanding,
   "blocks.hero-page": HeroPage,
-  "blocks.content-grid": ContentGrid,
+  "blocks.article-list": ArticleList,
   "blocks.photo-gallery": PhotoGallery,
   "blocks.quick-links": QuickLinks,
   "blocks.timeline": Timeline,

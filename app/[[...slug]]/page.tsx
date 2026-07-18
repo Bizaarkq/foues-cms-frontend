@@ -20,6 +20,12 @@
  *   restricted to the publications selected on those blocks (none selected on
  *   any block = all publications allowed). The parent route's visibility gate
  *   applies to its editions too.
+ *
+ * Article pagination as virtual child:
+ *   `{path-of-the-page-holding-an-article-list}/pagina/{n}` re-renders the
+ *   parent page with `pageNumber` injected through BlockRenderer. Each page
+ *   number is a distinct path (own ISR entry — no searchParams). n = 1 is
+ *   canonical at the parent path itself, so `/pagina/1` redirects there.
  */
 
 import { notFound, redirect } from "next/navigation";
@@ -30,6 +36,7 @@ import { FullWidthLayout } from "@/components/sdui/layouts/FullWidthLayout";
 import { BlockRenderer } from "@/components/sdui/BlockRenderer";
 import { MagazineViewer } from "@/components/magazine/MagazineViewer";
 import type { SDUIBlock, MagazineArchiveProps, SectionProps } from "@/types/blocks";
+import type { PageQueryResult } from "@/types/page";
 
 /**
  * Authoritative access gate (Spec B + gating por rol, spec sesión §7):
@@ -61,18 +68,18 @@ async function enforceRouteAccess(route: {
 }
 
 /**
- * Collects every blocks.magazine-archive in a page's content, including
+ * Collects every block of a given __component in a page's content, including
  * those nested inside blocks.section groups (max depth 2 by design).
  */
-function findMagazineArchiveBlocks(blocks: SDUIBlock[]): MagazineArchiveProps[] {
-  const found: MagazineArchiveProps[] = [];
+function findBlocksByComponent<T>(blocks: SDUIBlock[], component: string): T[] {
+  const found: T[] = [];
   for (const block of blocks) {
-    if (block.__component === "blocks.magazine-archive") {
-      found.push(block as MagazineArchiveProps);
+    if (block.__component === component) {
+      found.push(block as T);
     } else if (block.__component === "blocks.section") {
       const section = block as unknown as SectionProps;
       for (const group of section.children ?? []) {
-        found.push(...findMagazineArchiveBlocks(group.blocks));
+        found.push(...findBlocksByComponent<T>(group.blocks, component));
       }
     }
   }
@@ -94,6 +101,35 @@ export default async function Page(props: {
   }
 
   if (!data.route || !data.route.page) {
+    // Article-pagination virtual child: `{parentPath}/pagina/{n}` re-renders
+    // the parent page (if it holds an article-list block) with pageNumber n.
+    if (segments.length >= 3 && segments[segments.length - 2] === "pagina") {
+      const pageSegment = segments[segments.length - 1];
+      const pageNumber = /^\d+$/.test(pageSegment) ? Number(pageSegment) : NaN;
+      if (!Number.isInteger(pageNumber) || pageNumber < 1) notFound();
+
+      const parentPath = "/" + segments.slice(0, -2).join("/");
+
+      // Page 1 is canonical at the parent path itself.
+      if (pageNumber === 1) redirect(parentPath);
+
+      const parentData = await getPageByPath(parentPath);
+      const parentPage = parentData?.route?.page;
+
+      if (parentData?.route && parentPage) {
+        const hasArticleList =
+          findBlocksByComponent(parentPage.content, "blocks.article-list").length > 0;
+
+        if (hasArticleList) {
+          // Virtual pages inherit the parent route's visibility/role gate.
+          await enforceRouteAccess(parentData.route);
+          return renderPage(parentData, parentPath, pageNumber);
+        }
+      }
+
+      notFound();
+    }
+
     // Magazine-edition fallback: does the parent path hold an archive block?
     if (segments.length >= 2) {
       const editionSlug = segments[segments.length - 1];
@@ -102,7 +138,10 @@ export default async function Page(props: {
       const parentPage = parentData?.route?.page;
 
       if (parentData?.route && parentPage) {
-        const archives = findMagazineArchiveBlocks(parentPage.content);
+        const archives = findBlocksByComponent<MagazineArchiveProps>(
+          parentPage.content,
+          "blocks.magazine-archive"
+        );
 
         if (archives.length > 0) {
           // Editions inherit the archive page's visibility/role gate.
@@ -143,7 +182,16 @@ export default async function Page(props: {
   // Proxy does no auth; this is the authoritative CMS-driven gate.
   await enforceRouteAccess(data.route);
 
-  const page = data.route.page;
+  return renderPage(data, path, 1);
+}
+
+/**
+ * Renders a resolved SDUI page inside its layout. `pageNumber` > 1 only for
+ * the `/pagina/{n}` virtual child paths (BlockRenderer injects it into every
+ * block; article-list paginates on it).
+ */
+function renderPage(data: PageQueryResult, path: string, pageNumber: number) {
+  const page = data.route!.page!;
   const { layout, content } = page;
   const { navbar, footer } = data;
 
@@ -158,7 +206,7 @@ export default async function Page(props: {
     return (
       <FullWidthLayout navbar={navbar} footer={footer}>
         {srTitle}
-        <BlockRenderer blocks={content} pagePath={path} />
+        <BlockRenderer blocks={content} pagePath={path} pageNumber={pageNumber} />
       </FullWidthLayout>
     );
   }
@@ -166,7 +214,7 @@ export default async function Page(props: {
   return (
     <DefaultLayout navbar={navbar} footer={footer}>
       {srTitle}
-      <BlockRenderer blocks={content} pagePath={path} />
+      <BlockRenderer blocks={content} pagePath={path} pageNumber={pageNumber} />
     </DefaultLayout>
   );
 }

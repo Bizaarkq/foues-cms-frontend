@@ -11,7 +11,6 @@ import type { StrapiMedia, StrapiRichText } from "./strapi";
 import type { FormDefinition } from "./forms";
 import type {
   ButtonElement,
-  CardElement,
   TimelineItemElement,
   StepElement,
   ScheduleItemElement,
@@ -37,15 +36,11 @@ export type KeyDatesDisplayMode = "calendar" | "list";
 /** columns enum used in photo-gallery (col_2 | col_3 | col_4). */
 export type PhotoGalleryColumns = "col_2" | "col_3" | "col_4";
 
-/** columns enum used in content-grid (col_1 | col_2 | col_3 | col_4). */
-export type ContentGridColumns = "col_1" | "col_2" | "col_3" | "col_4";
-
-
-/** card_style enum for content-grid. */
+/** card_style enum shared by article-list and the card variants. */
 export type CardStyle = "default" | "compact" | "featured" | "horizontal";
 
-/** collection_type enum for content-grid (nullable — manual items when null). */
-export type CollectionType = "news" | "events" | "programs" | "faculty";
+/** category_filter enum for article-list (hyphen-free — Strapi GraphQL enum gotcha). */
+export type ArticleCategoryFilter = "news" | "event" | "all";
 
 // ---------------------------------------------------------------------------
 // Block props interfaces (one per block)
@@ -65,12 +60,22 @@ export interface HeroPageProps {
   gradient: GradientOption | null;
 }
 
-export interface ContentGridProps {
+/**
+ * ArticleListProps — self-fetching block (magazine-archive pattern).
+ * Only the presentation fields come from the page query; the articles are
+ * fetched by the component itself. `pagePath`/`pageNumber` are injected by
+ * BlockRenderer — pagination links resolve to `${pagePath}/pagina/${n}`.
+ */
+export interface ArticleListProps {
   title: string | null;
-  collection_type: CollectionType | null;
+  category_filter: ArticleCategoryFilter;
+  page_size: number | null;
   card_style: CardStyle;
-  columns: ContentGridColumns;
-  items: CardElement[];
+  columns: number | null;
+  /** Injected by BlockRenderer. */
+  pagePath?: string;
+  /** Injected by BlockRenderer (virtual `/pagina/{n}` child paths). */
+  pageNumber?: number;
 }
 
 export interface PhotoGalleryProps {
@@ -272,6 +277,8 @@ export interface SectionProps {
   children: BlockGroupContent[];
   /** Injected by BlockRenderer; forwarded to nested renderers. */
   pagePath?: string;
+  /** Injected by BlockRenderer; forwarded to nested renderers. */
+  pageNumber?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +295,7 @@ export interface SectionProps {
 export type SDUIBlock =
   | ({ __component: "blocks.hero-landing" } & HeroLandingProps)
   | ({ __component: "blocks.hero-page" } & HeroPageProps)
-  | ({ __component: "blocks.content-grid" } & ContentGridProps)
+  | ({ __component: "blocks.article-list" } & ArticleListProps)
   | ({ __component: "blocks.photo-gallery" } & PhotoGalleryProps)
   | ({ __component: "blocks.quick-links" } & QuickLinksProps)
   | ({ __component: "blocks.timeline" } & TimelineProps)

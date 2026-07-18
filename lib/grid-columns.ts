@@ -1,5 +1,3 @@
-import type { ContentGridColumns } from "@/types/blocks";
-
 // Bajo `md` toda columna colapsa a ancho completo; el span pedido aplica
 // desde md en adelante (clases literales — el JIT de Tailwind no compone).
 const COL_SPAN_MAP: Record<number, string> = {
@@ -13,14 +11,4 @@ const COL_SPAN_MAP: Record<number, string> = {
 
 export function sectionColSpan(n: number | null): string {
   return (n !== null && COL_SPAN_MAP[n]) ? COL_SPAN_MAP[n] : "col-span-12";
-}
-
-export function contentGridCols(col: ContentGridColumns): string {
-  switch (col) {
-    case "col_1": return "grid grid-cols-1";
-    case "col_2": return "grid grid-cols-1 sm:grid-cols-2";
-    case "col_3": return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-    case "col_4": return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-    default: return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-  }
 }
