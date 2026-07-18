@@ -1,18 +1,23 @@
 /**
  * Strapi collection types (articles, etc.).
- * REQ-T05: Collection shapes for content-grid collection_type resolution.
+ * Article shape consumed by the article-list block and /articulos/[slug].
  */
 
 import type { StrapiMedia } from "./strapi";
 
-/** Article (formerly "new") collection item. REQ-A01-A03. */
-export interface ArticleItem {
+/** Article category enum (hyphen-free values — Strapi GraphQL enum gotcha). */
+export type ArticleCategory = "news" | "event";
+
+/** Article (news/event) collection item. */
+export interface Article {
   documentId: string;
   Title: string;
   slug: string | null;
   excerpt: string | null;
   content: string | null;
   image: StrapiMedia | null;
-  createdAt: string; // ISO datetime string
+  category: ArticleCategory;
+  /** ISO datetime; meaningful only when category = "event". */
+  event_date: string | null;
   publishedAt: string | null;
 }

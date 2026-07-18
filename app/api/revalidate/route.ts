@@ -8,6 +8,7 @@
  *   - model === 'route'          → revalidateTag('routes')
  *   - model === 'page'           → revalidateTag('pages') + revalidateTag('page:${path}')
  *   - model === 'magazine-issue' → revalidateTag('magazine-issues') + revalidateTag('magazine-issue:${slug}')
+ *   - model === 'article'        → revalidateTag('articles') + revalidateTag('article:${slug}')
  *   - any other model            → revalidateTag('pages') + revalidateTag('routes')
  *     (footer, global-theme, block-group, staff, organizational-unit, form…
  *      all ride inside the unified page query, so every page fetch must expire;
@@ -80,6 +81,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tags.push('magazine-issues');
       const slug = body.entry?.slug;
       if (slug && typeof slug === 'string') tags.push(`magazine-issue:${slug}`);
+      break;
+    }
+
+    case 'article': {
+      // List block (getArticles) + per-article detail page
+      tags.push('articles');
+      const slug = body.entry?.slug;
+      if (slug && typeof slug === 'string') tags.push(`article:${slug}`);
       break;
     }
 

@@ -1,21 +1,17 @@
 /**
- * ContentGrid — responsive card grid block.
+ * Shared card renderers — extracted from the removed ContentGrid block so
+ * ArticleList (and any future grid block) reuses the same visual variants.
  *
- * REQ-CG01: Column count driven by `columns` enum via contentGridCols().
- * REQ-CG02: Card style variants: default | compact | featured | horizontal.
- * REQ-CG03: Each item may have image, title, description, url, tag.
- * REQ-CG04: Images rendered via Next.js <Image> with mediaUrl() helper.
- * REQ-CG05: Degrades gracefully when items array is empty.
+ * Each variant consumes a CardElement: image, title, description, url, tag.
+ * Styles: default | compact | featured | horizontal (CARD_COMPONENTS map).
  */
 
 import Image from "next/image";
 import Link from "next/link";
-import { Calendar, ArrowRight, LayoutGrid } from "lucide-react";
-import type { ContentGridProps } from "@/types/blocks";
+import { Calendar, ArrowRight } from "lucide-react";
+import type { CardStyle } from "@/types/blocks";
 import type { CardElement } from "@/types/elements";
 import { mediaUrl, mediaAlt } from "@/lib/media";
-import { contentGridCols } from "@/lib/grid-columns";
-import { EmptyState } from "@/components/sdui/EmptyState";
 
 /** Wrapper de tarjeta clickeable: hover + anillo de foco visible (a11y). */
 const cardLinkClass =
@@ -29,10 +25,10 @@ const tagChipStyle = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// Card style sub-components
+// Card style variants
 // ---------------------------------------------------------------------------
 
-function CardDefault({ item }: { item: CardElement }) {
+export function CardDefault({ item }: { item: CardElement }) {
   const imgUrl = mediaUrl(item.image);
   const imgAlt = mediaAlt(item.image, item.title);
 
@@ -75,7 +71,7 @@ function CardDefault({ item }: { item: CardElement }) {
   );
 }
 
-function CardCompact({ item }: { item: CardElement }) {
+export function CardCompact({ item }: { item: CardElement }) {
   const inner = (
     <div className="flex h-full flex-col gap-1 rounded-xl border border-[var(--color-foues-border-subtle)] bg-[var(--color-foues-surface-raised)] p-3 shadow-sm">
       {item.tag && (
@@ -97,7 +93,7 @@ function CardCompact({ item }: { item: CardElement }) {
   );
 }
 
-function CardFeatured({ item }: { item: CardElement }) {
+export function CardFeatured({ item }: { item: CardElement }) {
   const imgUrl = mediaUrl(item.image);
   const imgAlt = mediaAlt(item.image, item.title);
 
@@ -132,7 +128,7 @@ function CardFeatured({ item }: { item: CardElement }) {
   );
 }
 
-function CardHorizontal({ item }: { item: CardElement }) {
+export function CardHorizontal({ item }: { item: CardElement }) {
   const imgUrl = mediaUrl(item.image);
   const imgAlt = mediaAlt(item.image, item.title);
 
@@ -164,51 +160,10 @@ function CardHorizontal({ item }: { item: CardElement }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main block
-// ---------------------------------------------------------------------------
-
-const CARD_COMPONENTS = {
+/** card_style → variant component (O(1) lookup, unknown falls back to default). */
+export const CARD_COMPONENTS: Record<CardStyle, ({ item }: { item: CardElement }) => React.JSX.Element> = {
   default: CardDefault,
   compact: CardCompact,
   featured: CardFeatured,
   horizontal: CardHorizontal,
-} as const;
-
-export default function ContentGrid({
-  title,
-  columns,
-  card_style,
-  items,
-}: ContentGridProps) {
-  const gridClass = contentGridCols(columns);
-  const CardComponent = CARD_COMPONENTS[card_style] ?? CardDefault;
-
-  return (
-    <section className="w-full py-16 bg-[var(--color-foues-surface-sunken)]">
-      <div className="max-w-[1920px] mx-auto px-6">
-        {title && (
-          <div className="mb-10">
-            <h2 className="text-2xl font-bold uppercase tracking-wider sm:text-3xl" style={{ color: "var(--color-foues-navy)" }}>
-              {title}
-            </h2>
-            <span
-              className="mt-2 block h-1 w-16 rounded-full"
-              style={{ backgroundColor: "var(--color-foues-accent)" }}
-              aria-hidden="true"
-            />
-          </div>
-        )}
-        {items.length === 0 ? (
-          <EmptyState icon={LayoutGrid} message="Todavía no hay contenido en esta sección." />
-        ) : (
-          <div className={`${gridClass} gap-6`}>
-            {items.map((item, i) => (
-              <CardComponent key={i} item={item} />
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
+};
