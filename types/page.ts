@@ -37,12 +37,22 @@ export interface RouteNavItem {
 /** Page layout enum (matches Strapi enumeration). */
 export type PageLayout = "default" | "full-width";
 
+/** Per-page SEO overrides (shared.seo component) — all fields optional in the CMS. */
+export interface SeoData {
+  metaTitle: string | null;
+  metaDescription: string | null;
+  ogImage: import("./strapi").StrapiMedia | null;
+  noIndex: boolean;
+}
+
 /** Full page data from Strapi (with resolved Dynamic Zone blocks). */
 export interface PageData {
   documentId: string;
   title: string;
   layout: PageLayout;
   content: SDUIBlock[];
+  /** Null when the page has no shared.seo component — frontend derives fallbacks. */
+  seo: SeoData | null;
 }
 
 /** Full route data including its associated page (if any). */

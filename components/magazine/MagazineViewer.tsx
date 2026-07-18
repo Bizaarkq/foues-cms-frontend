@@ -13,7 +13,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
-import { getMagazineIssueBySlug } from "@/lib/strapi";
+import { getCachedMagazineIssue } from "@/lib/cached";
 import { env } from "@/lib/env";
 import type { NavbarData, FooterData } from "@/types/page";
 import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
@@ -58,7 +58,9 @@ export async function MagazineViewer({
   navbar,
   footer,
 }: MagazineViewerProps) {
-  const issue = await getMagazineIssueBySlug(slug);
+  // Cached wrapper: generateMetadata already fetched this issue in the same
+  // request — cache() dedupes the POST (Next only memoizes GET fetches).
+  const issue = await getCachedMagazineIssue(slug);
 
   // Guard: issue not found, not ready, or not published
   if (!issue || issue.conversionStatus !== "ready" || !issue.publishedAt) {

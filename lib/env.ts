@@ -30,6 +30,11 @@ const SITE_USER_TOKEN = required("SITE_USER_TOKEN", process.env.SITE_USER_TOKEN)
 // Sin valor, el link no se renderiza.
 const CAMPUS_VIRTUAL_URL = process.env.CAMPUS_VIRTUAL_URL || null;
 
+// Optional — canonical public origin for metadata/sitemap/robots
+// (e.g. "https://odontologia.ues.edu.sv"). Falls back to AUTH_URL.
+// Normalized without a trailing slash.
+const SITE_URL = (process.env.SITE_URL || AUTH_URL).replace(/\/+$/, "");
+
 const parsed = new URL(STRAPI_URL);
 const protocol = parsed.protocol.replace(":", "") as "http" | "https";
 const hostname = parsed.hostname;
@@ -57,4 +62,5 @@ export const env = {
   magazineTrackToken: MAGAZINE_TRACK_TOKEN,
   siteUserToken: SITE_USER_TOKEN,
   campusVirtualUrl: CAMPUS_VIRTUAL_URL,
+  siteUrl: SITE_URL,
 } as const;
