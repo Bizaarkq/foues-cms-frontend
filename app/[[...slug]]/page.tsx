@@ -34,6 +34,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getPageByPath } from "@/lib/strapi";
+import { childPath } from "@/lib/paths";
 import { getCachedMagazineIssue } from "@/lib/cached";
 import { auth } from "@/lib/auth";
 import { mediaUrl } from "@/lib/media";
@@ -122,10 +123,11 @@ const resolvePath = cache(async (path: string): Promise<ResolvedPath> => {
 
   // Article-pagination virtual child: `{parentPath}/pagina/{n}` re-renders
   // the parent page (if it holds an article-list block) with pageNumber n.
+  // 2 segments = the parent is the home page ("/").
   // No early not-found here: a CMS page whose own path ends in the literal
   // segment "pagina" can hold a magazine archive, so a failed pagination
   // match must still fall through to the magazine-edition fallback below.
-  if (segments.length >= 3 && segments[segments.length - 2] === "pagina") {
+  if (segments.length >= 2 && segments[segments.length - 2] === "pagina") {
     const pageSegment = segments[segments.length - 1];
     const pageNumber = /^\d+$/.test(pageSegment) ? Number(pageSegment) : NaN;
 
@@ -146,7 +148,8 @@ const resolvePath = cache(async (path: string): Promise<ResolvedPath> => {
   }
 
   // Magazine-edition fallback: does the parent path hold an archive block?
-  if (segments.length >= 2) {
+  // 1 segment = the parent is the home page ("/"), which may hold the archive.
+  if (segments.length >= 1) {
     const issueSlug = segments[segments.length - 1];
     const parentPath = "/" + segments.slice(0, -1).join("/");
     const parentData = await getPageByPath(parentPath);
@@ -205,7 +208,7 @@ function pageMetadata(data: PageQueryResult, path: string, pageNumber = 1): Meta
     pageNumber > 1 && baseTitle ? `${baseTitle} — Página ${pageNumber}` : baseTitle;
   const description = seo?.metaDescription ?? mineDescription(page.content) ?? undefined;
   const canonical = absoluteUrl(
-    pageNumber > 1 ? `${path}/pagina/${pageNumber}` : path
+    pageNumber > 1 ? childPath(path, `pagina/${pageNumber}`) : path
   );
   const noIndex = (seo?.noIndex ?? false) || isGatedRoute(route);
 
@@ -235,7 +238,7 @@ async function magazineIssueMetadata(
   const description = issue.description
     ? truncateDescription(issue.description)
     : undefined;
-  const canonical = absoluteUrl(`${resolved.parentPath}/${resolved.issueSlug}`);
+  const canonical = absoluteUrl(childPath(resolved.parentPath, resolved.issueSlug));
   // Editions inherit the archive page's visibility gate — and its noindex.
   const noIndex = isGatedRoute(resolved.parentData.route!);
 

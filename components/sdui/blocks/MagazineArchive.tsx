@@ -4,8 +4,8 @@
  * Placed in a page's content zone via the SDUI block registry. Fetches the
  * ready + published issues of the publications selected on the block (none
  * selected = all) and renders a responsive cover-card grid. Edition links
- * are relative to the page holding the block: `${pagePath}/${slug}` — the
- * catch-all resolves them back to MagazineViewer (no hardcoded prefix).
+ * are relative to the page holding the block — childPath(pagePath, slug) —
+ * the catch-all resolves them back to MagazineViewer (no hardcoded prefix).
  *
  * getAllReadyMagazineIssues() is called here instead of in the page to keep
  * the archive concern encapsulated inside the block.
@@ -16,6 +16,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getAllReadyMagazineIssues } from "@/lib/strapi";
+import { childPath } from "@/lib/paths";
 import { mediaUrl } from "@/lib/media";
 import { EmptyState } from "@/components/sdui/EmptyState";
 import type { MagazineArchiveProps } from "@/types/blocks";
@@ -70,7 +71,7 @@ async function ArchiveGrid({
   const issues = await getAllReadyMagazineIssues(
     publicationIds.length > 0 ? publicationIds : undefined
   );
-  const basePath = pagePath ?? "";
+  const basePath = pagePath ?? "/";
 
   return (
     <>
@@ -84,7 +85,7 @@ async function ArchiveGrid({
               return (
                 <Link
                   key={issue.documentId}
-                  href={`${basePath}/${issue.slug}`}
+                  href={childPath(basePath, issue.slug)}
                   className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] rounded"
                 >
                   <div className="bg-[var(--color-foues-surface-raised)] shadow-md overflow-hidden flex flex-col h-full transition-shadow group-hover:shadow-lg">
