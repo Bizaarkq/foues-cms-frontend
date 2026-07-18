@@ -235,9 +235,8 @@ export interface TableBlockProps {
  * MagazineArchiveProps — self-fetching block.
  * `title` and `publications` come from the page query (block fields);
  * the issues themselves are fetched by the component as an async RSC,
- * filtered to the selected publications (none selected = all).
- * `pagePath` is injected by BlockRenderer — edition links resolve to
- * `${pagePath}/${slug}` so the block works wherever it is placed.
+ * filtered to the selected publications (none selected = all). Edition
+ * links go to the dedicated /revista/{slug} route.
  */
 export interface PublicationRef {
   documentId: string;
@@ -248,7 +247,6 @@ export interface PublicationRef {
 export interface MagazineArchiveProps {
   title?: string | null;
   publications?: PublicationRef[] | null;
-  pagePath?: string;
 }
 
 // ---------------------------------------------------------------------------

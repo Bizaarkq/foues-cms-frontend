@@ -4,8 +4,8 @@
  * Placed in a page's content zone via the SDUI block registry. Fetches the
  * ready + published issues of the publications selected on the block (none
  * selected = all) and renders a responsive cover-card grid. Edition links
- * are relative to the page holding the block: `${pagePath}/${slug}` — the
- * catch-all resolves them back to MagazineViewer (no hardcoded prefix).
+ * point to the dedicated /revista/{slug} route ("revista" is a reserved
+ * path segment — the CMS rejects routes that collide with it).
  *
  * getAllReadyMagazineIssues() is called here instead of in the page to keep
  * the archive concern encapsulated inside the block.
@@ -62,15 +62,11 @@ export default function MagazineArchive(props: MagazineArchiveProps) {
   );
 }
 
-async function ArchiveGrid({
-  publications,
-  pagePath,
-}: MagazineArchiveProps) {
+async function ArchiveGrid({ publications }: MagazineArchiveProps) {
   const publicationIds = (publications ?? []).map((p) => p.documentId);
   const issues = await getAllReadyMagazineIssues(
     publicationIds.length > 0 ? publicationIds : undefined
   );
-  const basePath = pagePath ?? "";
 
   return (
     <>
@@ -84,7 +80,7 @@ async function ArchiveGrid({
               return (
                 <Link
                   key={issue.documentId}
-                  href={`${basePath}/${issue.slug}`}
+                  href={`/revista/${issue.slug}`}
                   className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] rounded"
                 >
                   <div className="bg-[var(--color-foues-surface-raised)] shadow-md overflow-hidden flex flex-col h-full transition-shadow group-hover:shadow-lg">

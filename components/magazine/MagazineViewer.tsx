@@ -6,18 +6,20 @@
  * absolute before passing them across the server → client boundary to
  * FlipbookClient.
  *
- * Receives navbar/footer from the catch-all route (getPageByPath returns
- * them even when no Strapi route exists for the magazine path).
+ * Rendered by the fixed /revista/{slug} route; editions are public (no
+ * visibility/role inheritance — the archive block's publication filter only
+ * governs what each archive lists). Back navigation returns to wherever the
+ * reader came from (BackLink), since any page may hold an archive block.
  */
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft, Download } from "lucide-react";
+import { Download } from "lucide-react";
 import { getCachedMagazineIssue } from "@/lib/cached";
 import { env } from "@/lib/env";
 import type { NavbarData, FooterData } from "@/types/page";
 import { DefaultLayout } from "@/components/sdui/layouts/DefaultLayout";
 import { FlipbookClient } from "./FlipbookClient";
+import { BackLink } from "./BackLink";
 
 // ---------------------------------------------------------------------------
 // Inline URL resolver — keeps this component free of a mediaUrl() import that
@@ -36,13 +38,6 @@ function resolveUrl(url: string): string {
 
 interface MagazineViewerProps {
   slug: string;
-  /** Path of the page holding the archive block — target of the back link. */
-  backHref: string;
-  /**
-   * Publications selected on the parent page's archive block(s).
-   * null = all publications allowed. An issue outside this set 404s.
-   */
-  allowedPublicationIds: string[] | null;
   navbar: NavbarData;
   footer: FooterData;
 }
@@ -51,29 +46,13 @@ interface MagazineViewerProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export async function MagazineViewer({
-  slug,
-  backHref,
-  allowedPublicationIds,
-  navbar,
-  footer,
-}: MagazineViewerProps) {
+export async function MagazineViewer({ slug, navbar, footer }: MagazineViewerProps) {
   // Cached wrapper: generateMetadata already fetched this issue in the same
   // request — cache() dedupes the POST (Next only memoizes GET fetches).
   const issue = await getCachedMagazineIssue(slug);
 
   // Guard: issue not found, not ready, or not published
   if (!issue || issue.conversionStatus !== "ready" || !issue.publishedAt) {
-    notFound();
-  }
-
-  // Guard: the issue must belong to a publication selected on the parent
-  // page's archive block(s); null = all publications allowed.
-  if (
-    allowedPublicationIds !== null &&
-    (!issue.publication ||
-      !allowedPublicationIds.includes(issue.publication.documentId))
-  ) {
     notFound();
   }
 
@@ -95,15 +74,8 @@ export async function MagazineViewer({
   return (
     <DefaultLayout navbar={navbar} footer={footer}>
       <div className="w-full max-w-5xl mx-auto">
-        {/* Back link */}
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-2 text-sm font-medium mb-6 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] rounded"
-          style={{ color: "var(--color-foues-text-secondary)" }}
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Todas las ediciones
-        </Link>
+        {/* Back navigation — returns to wherever the reader came from */}
+        <BackLink fallbackHref="/" label="Volver" />
 
         {/* Issue header */}
         <header className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-start sm:justify-between">
