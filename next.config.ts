@@ -33,15 +33,15 @@ const nextConfig: NextConfig = {
     unoptimized: isDev,
     remotePatterns,
   },
-  // Server Actions default to a 1MB body limit. The document-repository
-  // upload action (app/actions/submit-document.ts) accepts PDFs up to 15MB;
-  // 16MB leaves headroom for the multipart envelope around the file bytes.
-  // Verified against node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/serverActions.md.
-  experimental: {
-    serverActions: {
-      bodySizeLimit: "16mb",
-    },
-  },
+  // No experimental.serverActions.bodySizeLimit override: the
+  // document-repository upload never goes through a Server Action at all —
+  // the browser gets a short-lived ticket from
+  // app/api/documents/upload-ticket/route.ts (a small JSON exchange) and
+  // then POSTs the file bytes straight to the CMS itself, bypassing this
+  // app entirely. So Server Actions are back to Next's 1 MB default body
+  // limit — shrinking the unauthenticated-buffer DoS surface back down
+  // instead of leaving a 16 MB allowance around for actions that no longer
+  // need it.
 };
 
 export default nextConfig;

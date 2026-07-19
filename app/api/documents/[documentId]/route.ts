@@ -166,7 +166,10 @@ export async function GET(
       cache: "no-store",
       // Upper bound covering the whole streamed response body (not a connect
       // timeout) — large PDFs need time to stream fully through this proxy.
-      signal: AbortSignal.timeout(300_000),
+      // 15 minutes (up from 5) to match the new 500 MB upload ceiling: a
+      // file that large can legitimately take a while to stream back down
+      // to a reader on a slow connection.
+      signal: AbortSignal.timeout(900_000),
     });
   } catch (err) {
     console.error(`[documents] Failed to fetch file from Strapi for ${documentId}:`, err);

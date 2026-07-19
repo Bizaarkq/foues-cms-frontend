@@ -890,12 +890,16 @@ export interface SiteSettings {
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = { maxUploadMb: 15 };
 
-// next.config.ts's `serverActions.bodySizeLimit: '16mb'` is a build-time
-// Next.js setting (that file deliberately imports no env/CMS config so
-// Docker builds work without secrets) — the CMS value can only LOWER the
-// effective limit, never raise it past 15 MB without a rebuild. Matches the
-// CMS `site-setting.max_upload_mb` schema bounds (min 1, max 15).
-const MAX_UPLOAD_MB_CEILING = 15;
+// The browser uploads straight to the CMS now (ticket-based direct upload —
+// this app only issues the ticket via app/api/documents/upload-ticket/route.ts
+// and never touches the file bytes), so there is no next.config.ts build-time
+// body-size ceiling to stay under — the real ceiling chain is this clamp →
+// the CMS's upload-ticket-gate middleware's Content-Length check → the CMS's
+// own clamp (src/api/document/controllers/upload.ts resolveMaxUploadMb) →
+// formidable's maxFileSize (foues-cms-api's config/middlewares.ts) →
+// the reverse proxy's client_max_body_size, all kept in lockstep at 500 MB.
+// Matches the CMS `site-setting.max_upload_mb` schema bounds (min 1, max 500).
+const MAX_UPLOAD_MB_CEILING = 500;
 const MAX_UPLOAD_MB_FLOOR = 1;
 
 const SITE_SETTINGS_QUERY = /* GraphQL */ `
@@ -916,7 +920,7 @@ interface SiteSettingResponse {
  * Mirrors getGlobalTheme()'s defensive pattern: on ANY failure (network,
  * GraphQL errors, Strapi unreachable, missing public read permission, or a
  * null response) it logs and falls back to hardcoded defaults so upload UX
- * never breaks. The resolved value is additionally clamped to [1, 15] even
+ * never breaks. The resolved value is additionally clamped to [1, 500] even
  * on a successful response, in case of bad CMS data.
  *
  * @returns SiteSettings — always populated (defaults on failure/bad data).
@@ -1235,13 +1239,15 @@ interface RawDocumentCategoryForUpload {
 
 /**
  * getDocumentCategoryForUpload — REST re-fetch of ONLY the fields the
- * upload Server Action needs to authoritatively re-check permission
- * (submit-form trust model: never trust client-passed category config).
+ * upload-ticket route handler (app/api/documents/upload-ticket/route.ts)
+ * needs to authoritatively re-check permission (submit-form trust model:
+ * never trust client-passed category config).
  *
  * `cache: "no-store"` deliberately bypasses Next's data cache — this is the
  * authoritative gate, it must never serve a stale `upload_enabled`/role
- * config. Wrapped in React's per-request `cache()` only so a single Server
- * Action invocation that reads the category twice doesn't double-fetch.
+ * config. Wrapped in React's per-request `cache()` only so a single
+ * route-handler invocation that reads the category twice doesn't
+ * double-fetch.
  */
 export const getDocumentCategoryForUpload = cache(
   async (documentId: string): Promise<DocumentCategoryForUpload | null> => {
