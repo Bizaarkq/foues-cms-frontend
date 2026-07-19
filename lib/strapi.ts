@@ -96,7 +96,6 @@ const TYPENAME_TO_COMPONENT: Record<string, string> = {
   ComponentBlocksInfoCard: "blocks.info-card",
   ComponentBlocksRichText: "blocks.rich-text",
   ComponentBlocksCta: "blocks.cta",
-  ComponentBlocksCalendar: "blocks.calendar",
   ComponentBlocksMap: "blocks.map",
   ComponentBlocksStaffSection: "blocks.staff-section",
   ComponentBlocksClinicSchedule: "blocks.clinic-schedule",
@@ -262,11 +261,6 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
     description
     buttons { label url variant }
   }
-  ... on ComponentBlocksCalendar {
-    __typename
-    title
-    items { date title description category }
-  }
   ... on ComponentBlocksMap {
     __typename
     title
@@ -301,7 +295,7 @@ const LEAF_BLOCK_FRAGMENTS = /* GraphQL */ `
     __typename
     title
     display_mode
-    items { start_date end_date label description }
+    items { start_date end_date label description category }
   }
   ... on ComponentBlocksInfoCard {
     __typename

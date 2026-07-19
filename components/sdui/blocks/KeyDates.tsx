@@ -1,7 +1,32 @@
 import { CalendarDays } from "lucide-react";
 import type { KeyDatesProps } from "@/types/blocks";
-import type { DateEntry } from "@/types/elements";
+import type { DateCategory, DateEntry } from "@/types/elements";
 import { EmptyState } from "@/components/sdui/EmptyState";
+
+// ---------------------------------------------------------------------------
+// Categories (merged in from the former blocks.calendar)
+// ---------------------------------------------------------------------------
+
+const CATEGORY_LABEL: Record<DateCategory, string> = {
+  academico: "Académico",
+  evento: "Evento",
+  fecha_limite: "Fecha límite",
+  asueto: "Asueto",
+  otro: "Otro",
+};
+
+const CATEGORY_COLOR: Record<DateCategory, string> = {
+  academico: "var(--color-foues-navy)",
+  evento: "var(--color-foues-accent)",
+  fecha_limite: "var(--color-foues-red)",
+  asueto: "var(--color-foues-state-success)",
+  otro: "var(--color-foues-text-muted)",
+};
+
+/** Solid chip color for an entry: its category color, accent when uncategorised. */
+function chipColor(item: DateEntry): string {
+  return item.category ? CATEGORY_COLOR[item.category] : "var(--color-foues-accent)";
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -133,7 +158,8 @@ function CalendarGrid({ items }: { items: DateEntry[] }) {
               style={
                 isHighlighted
                   ? {
-                      backgroundColor: "color-mix(in srgb, var(--color-foues-accent) 15%, transparent)",
+                      // Day tint follows the (first) matched entry's category
+                      backgroundColor: `color-mix(in srgb, ${chipColor(matched[0])} 15%, transparent)`,
                       color: "var(--color-foues-navy)",
                     }
                   : { color: "color-mix(in srgb, var(--color-foues-navy) 70%, transparent)" }
@@ -157,12 +183,15 @@ function CalendarGrid({ items }: { items: DateEntry[] }) {
             <li key={i} className="flex items-baseline gap-3">
               <span
                 className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-white"
-                style={{ backgroundColor: "var(--color-foues-accent)" }}
+                style={{ backgroundColor: chipColor(item) }}
               >
                 {formatDateRange(item.start_date, item.end_date)}
               </span>
               <span className="text-sm font-medium" style={{ color: "var(--color-foues-navy)" }}>
                 {item.label}
+                {item.category && (
+                  <span className="sr-only"> ({CATEGORY_LABEL[item.category]})</span>
+                )}
               </span>
             </li>
           ))}
@@ -227,10 +256,18 @@ function DateList({ items }: { items: DateEntry[] }) {
             {formatDateRange(item.start_date, item.end_date)}
           </span>
 
-          {/* Label + description */}
+          {/* Label + category badge + description */}
           <div>
             <p className="font-medium" style={{ color: "var(--color-foues-navy)" }}>
               {item.label}
+              {item.category && (
+                <span
+                  className="ml-2 inline-block rounded-full px-2 py-0.5 align-middle text-[11px] font-semibold text-white"
+                  style={{ backgroundColor: CATEGORY_COLOR[item.category] }}
+                >
+                  {CATEGORY_LABEL[item.category]}
+                </span>
+              )}
             </p>
             {item.description && (
               <p
