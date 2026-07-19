@@ -16,10 +16,12 @@
  * token-holding proxy `/api/documents/{documentId}`, which re-validates the
  * role gate server-to-server before streaming the file.
  *
- * Stage 2: each category section also renders the upload form
- * (DocumentUploadForm, client component) when canUploadToCategory() passes
- * for the current session. This is a UI-visibility check only — the
- * submitDocument Server Action re-validates authoritatively.
+ * Stage 2: each category section header shows a "Subir documento" button
+ * at its top-right when canUploadToCategory() passes for the current
+ * session — this is a UI-visibility check only, `upload-ticket/route.ts`
+ * re-validates authoritatively. The button opens DocumentUploadModal
+ * (client component: trigger + native <dialog> + DocumentUploadForm), so a
+ * long document list no longer has to be scrolled past to reach the form.
  */
 
 import { Suspense } from "react";
@@ -29,7 +31,7 @@ import { auth } from "@/lib/auth";
 import { getDocumentRepositoryData, getSiteSettings } from "@/lib/strapi";
 import { canReadCategory, canUploadToCategory } from "@/lib/document-upload-rule";
 import { EmptyState } from "@/components/sdui/EmptyState";
-import DocumentUploadForm from "@/components/sdui/blocks/DocumentUploadForm";
+import DocumentUploadModal from "@/components/sdui/blocks/DocumentUploadModal";
 import type { DocumentRepositoryProps } from "@/types/blocks";
 import type { DocumentCategory, RepoDocument } from "@/types/collections";
 
@@ -198,14 +200,28 @@ function CategorySection({
 }) {
   return (
     <div className="bg-[var(--color-foues-surface-raised)] p-6 shadow-md">
-      <h3 className="text-lg font-bold" style={{ color: "var(--color-foues-navy)" }}>
-        {category.name}
-      </h3>
-      {category.description && (
-        <p className="mt-1 text-sm text-[var(--color-foues-text-secondary)]">
-          {category.description}
-        </p>
-      )}
+      {/* Header row: category title/description on the left, the upload
+          trigger pinned to the top-right — keeps it reachable without
+          scrolling past a long document list. */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold" style={{ color: "var(--color-foues-navy)" }}>
+            {category.name}
+          </h3>
+          {category.description && (
+            <p className="mt-1 text-sm text-[var(--color-foues-text-secondary)]">
+              {category.description}
+            </p>
+          )}
+        </div>
+        {canUpload && (
+          <DocumentUploadModal
+            categoryId={category.documentId}
+            categoryName={category.name}
+            maxUploadMb={maxUploadMb}
+          />
+        )}
+      </div>
 
       {canRead ? (
         documents.length === 0 ? (
@@ -262,10 +278,6 @@ function CategorySection({
           Puedes subir documentos en esta categoría; la lista solo es visible
           para los roles autorizados.
         </p>
-      )}
-
-      {canUpload && (
-        <DocumentUploadForm categoryId={category.documentId} maxUploadMb={maxUploadMb} />
       )}
     </div>
   );

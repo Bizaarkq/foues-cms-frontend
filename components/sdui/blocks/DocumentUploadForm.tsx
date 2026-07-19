@@ -2,9 +2,11 @@
 /**
  * DocumentUploadForm — stage 2 upload UI for the document repository block.
  *
- * Collapsed into a "Subir documento" button per category; expands into a
- * small form (title + PDF file) that now uploads in TWO network steps under
- * the ticket-based upload redesign:
+ * Rendered as the sole content of the `DocumentUploadModal` dialog for a
+ * category (button + <dialog> live in that wrapper now, not here). This
+ * component owns only the form fields and the upload contract: title + PDF
+ * file, uploaded in TWO network steps under the ticket-based upload
+ * redesign:
  *   A. Client-side pre-checks (no network) — title, file selection,
  *      extension, and size are all validated locally first.
  *   B. `POST /api/documents/upload-ticket` (this app) — session + role
@@ -26,9 +28,16 @@
  * below are a UX nicety only, not a security boundary — the CMS remains the
  * sole enforcement point for file type/MIME/signature/size
  * (its own `/api/documents/upload/{ticket}` controller).
+ *
+ * Status is reported upward via `onStatusChange` on every transition, so
+ * `DocumentUploadModal` can block closing while a request is in flight and
+ * schedule the auto-close + `router.refresh()` once it sees "success" — this
+ * component has no opinion on the dialog's lifecycle, only on the upload
+ * itself. On success the field markup is unmounted in favor of a plain
+ * success message (the modal closes shortly after); on error the form stays
+ * exactly as the user left it, with the mapped message shown below it.
  */
 import { useRef, useState, type FormEvent } from "react";
-import { Upload } from "lucide-react";
 import { mapUploadError } from "@/lib/document-upload-messages";
 
 interface TicketIssueResult {
@@ -45,7 +54,7 @@ interface CmsUploadResult {
   documentId?: string;
 }
 
-type UploadStatus = "idle" | "uploading" | "success" | "error";
+export type UploadStatus = "idle" | "uploading" | "success" | "error";
 
 interface UploadState {
   status: UploadStatus;
@@ -64,17 +73,30 @@ const initialState: UploadState = {
 export default function DocumentUploadForm({
   categoryId,
   maxUploadMb,
+  onStatusChange,
+  onCancel,
 }: {
   categoryId: string;
   maxUploadMb: number;
+  /** Fired on every status transition — lets the owning modal block closing
+   *  while "uploading" and schedule its auto-close on "success". */
+  onStatusChange?: (status: UploadStatus, published: boolean | null) => void;
+  /** Invoked by the form's own "Cancelar" button — the modal decides what
+   *  closing means (it already guards against closing mid-upload). */
+  onCancel: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [state, setState] = useState<UploadState>(initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isUploading = state.status === "uploading";
+
+  /** setState + notify the modal in one place, so no transition is missed. */
+  function applyState(next: UploadState) {
+    setState(next);
+    onStatusChange?.(next.status, next.published);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,11 +107,11 @@ export default function DocumentUploadForm({
 
     // --- Step A: client-side pre-checks (no network, immediate feedback). ---
     if (!title) {
-      setState({ status: "error", percent: 0, message: "El título es requerido.", published: null });
+      applyState({ status: "error", percent: 0, message: "El título es requerido.", published: null });
       return;
     }
     if (!file) {
-      setState({
+      applyState({
         status: "error",
         percent: 0,
         message: "Debes seleccionar un archivo.",
@@ -99,7 +121,7 @@ export default function DocumentUploadForm({
     }
     // Cheap client-side check for UX only — see the file header comment.
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setState({
+      applyState({
         status: "error",
         percent: 0,
         message: "Solo se aceptan archivos PDF.",
@@ -108,7 +130,7 @@ export default function DocumentUploadForm({
       return;
     }
     if (file.size > maxUploadMb * 1024 * 1024) {
-      setState({
+      applyState({
         status: "error",
         percent: 0,
         message: `El archivo supera el tamaño máximo permitido (${maxUploadMb} MB).`,
@@ -120,7 +142,7 @@ export default function DocumentUploadForm({
     // Show upload state immediately — even though step B (ticket issuance)
     // has no progress signal of its own, the user should see *something*
     // happening as soon as they submit.
-    setState({ status: "uploading", percent: 0, message: null, published: null });
+    applyState({ status: "uploading", percent: 0, message: null, published: null });
 
     // --- Step B: fetch a one-time upload ticket from this app. ---
     let ticket: TicketIssueResult | null = null;
@@ -132,7 +154,7 @@ export default function DocumentUploadForm({
       });
       ticket = (await ticketRes.json()) as TicketIssueResult;
       if (!ticketRes.ok || !ticket?.ok || !ticket.uploadUrl) {
-        setState({
+        applyState({
           status: "error",
           percent: 0,
           message: ticket?.error ?? "No se pudo preparar la subida. Inténtalo de nuevo.",
@@ -141,7 +163,7 @@ export default function DocumentUploadForm({
         return;
       }
     } catch {
-      setState({
+      applyState({
         status: "error",
         percent: 0,
         message: "Error de red al preparar la subida. Inténtalo de nuevo.",
@@ -184,7 +206,7 @@ export default function DocumentUploadForm({
       }
 
       if (xhr.status >= 200 && xhr.status < 300 && json?.ok) {
-        setState({
+        applyState({
           status: "success",
           percent: 100,
           message: null,
@@ -194,7 +216,7 @@ export default function DocumentUploadForm({
       } else {
         // The CMS's `message` is English/internal — never shown to the
         // user. Only the mapped Spanish string reaches the UI.
-        setState({
+        applyState({
           status: "error",
           percent: 0,
           message: mapUploadError(json?.error, maxUploadMb),
@@ -204,7 +226,7 @@ export default function DocumentUploadForm({
     };
 
     xhr.onerror = () => {
-      setState({
+      applyState({
         status: "error",
         percent: 0,
         message:
@@ -214,7 +236,7 @@ export default function DocumentUploadForm({
     };
 
     xhr.ontimeout = () => {
-      setState({
+      applyState({
         status: "error",
         percent: 0,
         message: "La subida tardó demasiado tiempo. Inténtalo de nuevo.",
@@ -225,29 +247,27 @@ export default function DocumentUploadForm({
     xhr.send(formData);
   }
 
-  if (!expanded) {
+  // Success: the form fields are gone — only the confirmation message
+  // remains, for the ~1.5-2s beat before DocumentUploadModal auto-closes
+  // the dialog and refreshes the category list (see that component's
+  // header comment). Fixes the old bug where the form stayed visible,
+  // still showing stale fields, after a successful upload.
+  if (state.status === "success") {
     return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="inline-flex items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)]"
-        style={{
-          color: "var(--color-foues-accent)",
-          border: "1px solid var(--color-foues-accent)",
-        }}
+      <p
+        className="text-sm"
+        role="status"
+        style={{ color: "var(--color-foues-state-success)" }}
       >
-        <Upload className="h-4 w-4" aria-hidden="true" />
-        Subir documento
-      </button>
+        {state.published
+          ? "Documento publicado."
+          : "Documento enviado; quedará visible cuando sea aprobado."}
+      </p>
     );
   }
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit}
-      className="mt-4 flex flex-col gap-3 border-t border-[var(--color-foues-border-subtle)] pt-4"
-    >
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <label
           htmlFor={`title-${categoryId}`}
@@ -316,7 +336,7 @@ export default function DocumentUploadForm({
         </button>
         <button
           type="button"
-          onClick={() => setExpanded(false)}
+          onClick={onCancel}
           disabled={isUploading}
           className="text-sm text-[var(--color-foues-text-muted)] underline-offset-2 hover:underline"
         >
@@ -324,22 +344,15 @@ export default function DocumentUploadForm({
         </button>
       </div>
 
-      {(state.status === "success" || state.status === "error") && (
+      {/* Error flow: the form stays exactly as the user left it, with the
+          mapped Spanish message shown below — nothing is cleared. */}
+      {state.status === "error" && (
         <p
           className="text-sm"
           role="status"
-          style={{
-            color:
-              state.status === "success"
-                ? "var(--color-foues-state-success)"
-                : "var(--color-foues-state-error)",
-          }}
+          style={{ color: "var(--color-foues-state-error)" }}
         >
-          {state.status === "success"
-            ? state.published
-              ? "Documento publicado."
-              : "Documento enviado; quedará visible cuando sea aprobado."
-            : state.message}
+          {state.message}
         </p>
       )}
     </form>
