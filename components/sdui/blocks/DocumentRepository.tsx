@@ -26,7 +26,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { FileText, Lock } from "lucide-react";
+import { Download, FileText, Lock } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getDocumentRepositoryData, getSiteSettings } from "@/lib/strapi";
 import { canReadCategory, canUploadToCategory } from "@/lib/document-upload-rule";
@@ -202,11 +202,21 @@ function CategorySection({
     <div className="bg-[var(--color-foues-surface-raised)] p-6 shadow-md">
       {/* Header row: category title/description on the left, the upload
           trigger pinned to the top-right — keeps it reachable without
-          scrolling past a long document list. */}
+          scrolling past a long document list. The document count only
+          renders for sessions that pass the READ rule: upload-only roles
+          are not entitled to know how many documents the list holds. */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-lg font-bold" style={{ color: "var(--color-foues-navy)" }}>
             {category.name}
+            {canRead && documents.length > 0 && (
+              <span
+                className="ml-3 align-middle text-xs font-normal tabular-nums text-[var(--color-foues-text-muted)]"
+                aria-label={`${documents.length} documentos`}
+              >
+                {documents.length} {documents.length === 1 ? "documento" : "documentos"}
+              </span>
+            )}
           </h3>
           {category.description && (
             <p className="mt-1 text-sm text-[var(--color-foues-text-secondary)]">
@@ -229,46 +239,73 @@ function CategorySection({
             Todavía no hay documentos en esta categoría.
           </p>
         ) : (
+          /* Ledger-style rows: the whole row is the download link (single
+             possible action, so the row IS the action — bigger target than
+             the old per-row solid button, and the accent stops repeating on
+             every line; the section's one bold element stays the upload
+             trigger). Format/date/size are quiet, truthful metadata: a "PDF"
+             tag instead of a decorative icon, tabular figures right-aligned. */
           <ul className="mt-4 flex flex-col divide-y divide-[var(--color-foues-border-subtle)]">
-            {documents.map((doc) => (
-              <li key={doc.documentId} className="flex items-center justify-between gap-4 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <FileText
-                    className="h-5 w-5 shrink-0"
-                    style={{ color: "var(--color-foues-text-muted)" }}
+            {documents.map((doc) => {
+              const meta = (
+                <span className="flex shrink-0 items-baseline gap-4">
+                  <span className="hidden text-xs tabular-nums text-[var(--color-foues-text-muted)] sm:inline">
+                    {doc.publishedAt &&
+                      new Date(doc.publishedAt).toLocaleDateString("es-SV", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    {doc.file &&
+                      formatFileSize(doc.file.size) &&
+                      ` · ${formatFileSize(doc.file.size)}`}
+                  </span>
+                </span>
+              );
+              const titleBlock = (
+                <span className="flex min-w-0 items-center gap-3">
+                  <span
+                    className="shrink-0 rounded-sm border border-[var(--color-foues-border-subtle)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-foues-text-muted)]"
                     aria-hidden="true"
-                  />
-                  <div className="min-w-0">
-                    <p
-                      className="truncate text-sm font-semibold"
-                      style={{ color: "var(--color-foues-text-base)" }}
-                    >
-                      {doc.title}
-                    </p>
-                    <p className="text-xs text-[var(--color-foues-text-muted)]">
-                      {doc.publishedAt &&
-                        new Date(doc.publishedAt).toLocaleDateString("es-SV", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      {doc.file &&
-                        formatFileSize(doc.file.size) &&
-                        ` · ${formatFileSize(doc.file.size)}`}
-                    </p>
-                  </div>
-                </div>
-                {doc.file && (
-                  <a
-                    href={`/api/documents/${doc.documentId}`}
-                    className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)]"
-                    style={{ backgroundColor: "var(--color-foues-accent)" }}
                   >
-                    Descargar
-                  </a>
-                )}
-              </li>
-            ))}
+                    PDF
+                  </span>
+                  <span
+                    className="truncate text-sm font-semibold"
+                    style={{ color: "var(--color-foues-text-base)" }}
+                  >
+                    {doc.title}
+                  </span>
+                </span>
+              );
+              return (
+                <li key={doc.documentId}>
+                  {doc.file ? (
+                    <a
+                      href={`/api/documents/${doc.documentId}`}
+                      aria-label={`Descargar ${doc.title}`}
+                      className="group flex items-center justify-between gap-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-foues-accent)] motion-safe:transition-colors hover:bg-[color-mix(in_srgb,var(--color-foues-accent)_5%,transparent)]"
+                    >
+                      {titleBlock}
+                      <span className="flex shrink-0 items-center gap-4">
+                        {meta}
+                        <span className="flex items-center gap-1 text-xs font-semibold text-[var(--color-foues-accent)]">
+                          <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                          Descargar
+                        </span>
+                      </span>
+                    </a>
+                  ) : (
+                    // No file attached (still processing or misconfigured
+                    // entry): render the same row, just not clickable.
+                    <div className="flex items-center justify-between gap-4 py-3">
+                      {titleBlock}
+                      {meta}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )
       ) : (
