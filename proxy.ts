@@ -42,8 +42,14 @@ export function proxy(request: NextRequest): NextResponse {
     request.method === 'POST' && request.headers.has('next-action');
 
   if (isServerAction) {
+    // Use the RIGHTMOST x-forwarded-for hop, not the leftmost: the leftmost
+    // value is whatever the client sent and is trivially spoofable (an
+    // attacker can rotate fake XFF values to evade the 5/min cap — notably
+    // relevant now that Server Actions accept bodies up to 16 MB). The
+    // rightmost value is appended by our own trusted reverse proxy and
+    // cannot be forged by the client.
     const ip =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+      request.headers.get('x-forwarded-for')?.split(',').pop()?.trim() ??
       request.headers.get('x-real-ip') ??
       'unknown';
 

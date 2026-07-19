@@ -26,6 +26,7 @@ import type { Article, DocumentCategory, RepoDocument } from "@/types/collection
 import type { ButtonVariant } from "@/types/elements";
 import type { StrapiMedia } from "@/types/strapi";
 import { env } from "./env";
+import { cache } from "react";
 
 // ---------------------------------------------------------------------------
 // Core GraphQL fetcher
@@ -880,6 +881,68 @@ export async function getGlobalTheme(): Promise<GlobalTheme | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Site settings (admin-editable registry — currently: upload size limit)
+// ---------------------------------------------------------------------------
+
+export interface SiteSettings {
+  maxUploadMb: number;
+}
+
+const DEFAULT_SITE_SETTINGS: SiteSettings = { maxUploadMb: 15 };
+
+// The browser uploads straight to the CMS now (ticket-based direct upload —
+// this app only issues the ticket via app/api/documents/upload-ticket/route.ts
+// and never touches the file bytes), so there is no next.config.ts build-time
+// body-size ceiling to stay under — the real ceiling chain is this clamp →
+// the CMS's upload-ticket-gate middleware's Content-Length check → the CMS's
+// own clamp (src/api/document/controllers/upload.ts resolveMaxUploadMb) →
+// formidable's maxFileSize (foues-cms-api's config/middlewares.ts) →
+// the reverse proxy's client_max_body_size, all kept in lockstep at 500 MB.
+// Matches the CMS `site-setting.max_upload_mb` schema bounds (min 1, max 500).
+const MAX_UPLOAD_MB_CEILING = 500;
+const MAX_UPLOAD_MB_FLOOR = 1;
+
+const SITE_SETTINGS_QUERY = /* GraphQL */ `
+  query GetSiteSettings {
+    siteSetting {
+      max_upload_mb
+    }
+  }
+`;
+
+interface SiteSettingResponse {
+  siteSetting: { max_upload_mb: number | null } | null;
+}
+
+/**
+ * getSiteSettings — fetches the admin-editable site settings registry.
+ *
+ * Mirrors getGlobalTheme()'s defensive pattern: on ANY failure (network,
+ * GraphQL errors, Strapi unreachable, missing public read permission, or a
+ * null response) it logs and falls back to hardcoded defaults so upload UX
+ * never breaks. The resolved value is additionally clamped to [1, 500] even
+ * on a successful response, in case of bad CMS data.
+ *
+ * @returns SiteSettings — always populated (defaults on failure/bad data).
+ */
+export async function getSiteSettings(): Promise<SiteSettings> {
+  try {
+    const data = await gql<SiteSettingResponse>(SITE_SETTINGS_QUERY, undefined, {
+      tags: ["site-settings"],
+    });
+    const raw = data.siteSetting?.max_upload_mb;
+    if (raw === null || raw === undefined || !Number.isFinite(raw)) {
+      return DEFAULT_SITE_SETTINGS;
+    }
+    const maxUploadMb = Math.min(MAX_UPLOAD_MB_CEILING, Math.max(MAX_UPLOAD_MB_FLOOR, raw));
+    return { maxUploadMb };
+  } catch (err) {
+    console.error("[strapi] getSiteSettings() failed:", err);
+    return DEFAULT_SITE_SETTINGS;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Magazine issues
 // ---------------------------------------------------------------------------
 
@@ -1051,6 +1114,9 @@ interface RawDocumentCategory {
   slug: string;
   description: string | null;
   allowed_roles: RawAllowedRoles;
+  upload_enabled: boolean;
+  requires_approval: boolean;
+  upload_roles: RawAllowedRoles;
 }
 
 /** Raw document shape straight from GraphQL. */
@@ -1082,6 +1148,9 @@ const DOCUMENT_REPOSITORY_QUERY = /* GraphQL */ `
       slug
       description
       allowed_roles { key }
+      upload_enabled
+      requires_approval
+      upload_roles { key }
     }
     documents(filters: $documentFilters, pagination: { limit: -1 }) {
       documentId
@@ -1129,6 +1198,9 @@ export async function getDocumentRepositoryData(
       slug: c.slug,
       description: c.description,
       allowedRoles: mapAllowedRoles(c.allowed_roles),
+      uploadEnabled: c.upload_enabled,
+      requiresApproval: c.requires_approval,
+      uploadRoles: mapAllowedRoles(c.upload_roles),
     }));
 
     const documents: RepoDocument[] = data.documents
@@ -1147,6 +1219,65 @@ export async function getDocumentRepositoryData(
     return { categories: [], documents: [] };
   }
 }
+
+/** Category shape needed for the stage-2 upload authoritative re-check. */
+export interface DocumentCategoryForUpload {
+  uploadEnabled: boolean;
+  requiresApproval: boolean;
+  allowedRoles: string[];
+  uploadRoles: string[];
+}
+
+interface RawDocumentCategoryForUpload {
+  data: {
+    upload_enabled: boolean;
+    requires_approval: boolean;
+    allowed_roles: RawAllowedRoles;
+    upload_roles: RawAllowedRoles;
+  } | null;
+}
+
+/**
+ * getDocumentCategoryForUpload — REST re-fetch of ONLY the fields the
+ * upload-ticket route handler (app/api/documents/upload-ticket/route.ts)
+ * needs to authoritatively re-check permission (submit-form trust model:
+ * never trust client-passed category config).
+ *
+ * `cache: "no-store"` deliberately bypasses Next's data cache — this is the
+ * authoritative gate, it must never serve a stale `upload_enabled`/role
+ * config. Wrapped in React's per-request `cache()` only so a single
+ * route-handler invocation that reads the category twice doesn't
+ * double-fetch.
+ */
+export const getDocumentCategoryForUpload = cache(
+  async (documentId: string): Promise<DocumentCategoryForUpload | null> => {
+    try {
+      const res = await fetch(
+        `${env.strapi.url}/api/document-categories/${encodeURIComponent(documentId)}` +
+          `?populate[allowed_roles]=true&populate[upload_roles]=true`,
+        {
+          headers: { Authorization: `Bearer ${env.documentToken}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (!res.ok) return null;
+
+      const json = (await res.json()) as RawDocumentCategoryForUpload;
+      if (!json.data) return null;
+
+      return {
+        uploadEnabled: json.data.upload_enabled,
+        requiresApproval: json.data.requires_approval,
+        allowedRoles: mapAllowedRoles(json.data.allowed_roles),
+        uploadRoles: mapAllowedRoles(json.data.upload_roles),
+      };
+    } catch (err) {
+      console.error(`[strapi] getDocumentCategoryForUpload(${documentId}) failed:`, err);
+      return null;
+    }
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Articles (news / events)
