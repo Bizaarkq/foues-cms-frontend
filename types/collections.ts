@@ -23,3 +23,40 @@ export interface Article {
   /** Selected only by the by-slug query (JSON-LD dateModified). */
   updatedAt?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Document repository
+// ---------------------------------------------------------------------------
+
+/** Document category — defines the read-role gate for its documents. */
+export interface DocumentCategory {
+  documentId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  /**
+   * Normalised role keys (mapped from the allowed_roles relation at the
+   * lib/strapi.ts boundary, mapAllowedRoles pattern). Empty = any
+   * logged-in user may read.
+   */
+  allowedRoles: string[];
+}
+
+/** File metadata for a document — deliberately NOT the full StrapiMedia
+ * shape: the repository never exposes the raw Strapi upload URL to the
+ * client, only what the download proxy needs to render the link. */
+export interface RepoDocumentFile {
+  url: string;
+  name: string;
+  mime: string;
+  size: number | null;
+}
+
+/** Document (repository item) collection item. */
+export interface RepoDocument {
+  documentId: string;
+  title: string;
+  file: RepoDocumentFile | null;
+  categoryId: string;
+  publishedAt: string | null;
+}

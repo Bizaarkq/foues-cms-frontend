@@ -250,6 +250,27 @@ export interface MagazineArchiveProps {
 }
 
 // ---------------------------------------------------------------------------
+// Document repository block
+// ---------------------------------------------------------------------------
+
+/**
+ * DocumentRepositoryProps — self-fetching block (magazine-archive pattern).
+ * `title` and `categories` come from the page query (block fields); the
+ * categories' documents are fetched by the component itself, then filtered
+ * by the session role in JS (never baked into the cached fetch).
+ */
+export interface DocumentCategoryRef {
+  documentId: string;
+  name: string;
+  slug: string;
+}
+
+export interface DocumentRepositoryProps {
+  title?: string | null;
+  categories?: DocumentCategoryRef[] | null;
+}
+
+// ---------------------------------------------------------------------------
 // Nested SDUI types (blocks.section)
 // ---------------------------------------------------------------------------
 
@@ -313,6 +334,7 @@ export type SDUIBlock =
   | ({ __component: "blocks.section" } & SectionProps) // nested SDUI container (ADR-1)
   | ({ __component: "blocks.form" } & FormBlockProps)
   | ({ __component: "blocks.magazine-archive" } & MagazineArchiveProps)
+  | ({ __component: "blocks.document-repository" } & DocumentRepositoryProps)
   | ({ __component: "blocks.accordion" } & AccordionBlockProps)
   | ({ __component: "blocks.tabs" } & TabsBlockProps)
   | ({ __component: "blocks.carousel" } & CarouselBlockProps)

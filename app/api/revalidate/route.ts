@@ -9,6 +9,8 @@
  *   - model === 'page'           → revalidateTag('pages') + revalidateTag('page:${path}')
  *   - model === 'magazine-issue' → revalidateTag('magazine-issues') + revalidateTag('magazine-issue:${slug}')
  *   - model === 'article'        → revalidateTag('articles') + revalidateTag('article:${slug}')
+ *   - model === 'document'       → revalidateTag('documents')
+ *   - model === 'document-category' → revalidateTag('documents')
  *   - any other model            → revalidateTag('pages') + revalidateTag('routes')
  *     (footer, global-theme, block-group, staff, organizational-unit, form…
  *      all ride inside the unified page query, so every page fetch must expire;
@@ -96,6 +98,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Publication data reaches both the archive fetches (magazine-issues
       // tag) and the page query that populates the block's relation (pages).
       tags.push('magazine-issues', 'pages', 'routes');
+      break;
+
+    case 'document':
+      // Document repository block fetch (getDocumentRepositoryData).
+      tags.push('documents');
+      break;
+
+    case 'document-category':
+      // Same fetch also lists categories — role gate lives on this model.
+      tags.push('documents');
       break;
 
     default:
