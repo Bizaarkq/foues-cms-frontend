@@ -33,6 +33,15 @@ const nextConfig: NextConfig = {
     unoptimized: isDev,
     remotePatterns,
   },
+  // Server Actions default to a 1MB body limit. The document-repository
+  // upload action (app/actions/submit-document.ts) accepts PDFs up to 15MB;
+  // 16MB leaves headroom for the multipart envelope around the file bytes.
+  // Verified against node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/serverActions.md.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "16mb",
+    },
+  },
 };
 
 export default nextConfig;

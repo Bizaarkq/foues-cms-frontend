@@ -26,6 +26,7 @@ import type { Article, DocumentCategory, RepoDocument } from "@/types/collection
 import type { ButtonVariant } from "@/types/elements";
 import type { StrapiMedia } from "@/types/strapi";
 import { env } from "./env";
+import { cache } from "react";
 
 // ---------------------------------------------------------------------------
 // Core GraphQL fetcher
@@ -1051,6 +1052,9 @@ interface RawDocumentCategory {
   slug: string;
   description: string | null;
   allowed_roles: RawAllowedRoles;
+  upload_enabled: boolean;
+  requires_approval: boolean;
+  upload_roles: RawAllowedRoles;
 }
 
 /** Raw document shape straight from GraphQL. */
@@ -1082,6 +1086,9 @@ const DOCUMENT_REPOSITORY_QUERY = /* GraphQL */ `
       slug
       description
       allowed_roles { key }
+      upload_enabled
+      requires_approval
+      upload_roles { key }
     }
     documents(filters: $documentFilters, pagination: { limit: -1 }) {
       documentId
@@ -1129,6 +1136,9 @@ export async function getDocumentRepositoryData(
       slug: c.slug,
       description: c.description,
       allowedRoles: mapAllowedRoles(c.allowed_roles),
+      uploadEnabled: c.upload_enabled,
+      requiresApproval: c.requires_approval,
+      uploadRoles: mapAllowedRoles(c.upload_roles),
     }));
 
     const documents: RepoDocument[] = data.documents
@@ -1147,6 +1157,63 @@ export async function getDocumentRepositoryData(
     return { categories: [], documents: [] };
   }
 }
+
+/** Category shape needed for the stage-2 upload authoritative re-check. */
+export interface DocumentCategoryForUpload {
+  uploadEnabled: boolean;
+  requiresApproval: boolean;
+  allowedRoles: string[];
+  uploadRoles: string[];
+}
+
+interface RawDocumentCategoryForUpload {
+  data: {
+    upload_enabled: boolean;
+    requires_approval: boolean;
+    allowed_roles: RawAllowedRoles;
+    upload_roles: RawAllowedRoles;
+  } | null;
+}
+
+/**
+ * getDocumentCategoryForUpload — REST re-fetch of ONLY the fields the
+ * upload Server Action needs to authoritatively re-check permission
+ * (submit-form trust model: never trust client-passed category config).
+ *
+ * `cache: "no-store"` deliberately bypasses Next's data cache — this is the
+ * authoritative gate, it must never serve a stale `upload_enabled`/role
+ * config. Wrapped in React's per-request `cache()` only so a single Server
+ * Action invocation that reads the category twice doesn't double-fetch.
+ */
+export const getDocumentCategoryForUpload = cache(
+  async (documentId: string): Promise<DocumentCategoryForUpload | null> => {
+    try {
+      const res = await fetch(
+        `${env.strapi.url}/api/document-categories/${encodeURIComponent(documentId)}` +
+          `?populate[allowed_roles]=true&populate[upload_roles]=true`,
+        {
+          headers: { Authorization: `Bearer ${env.documentToken}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(10_000),
+        }
+      );
+      if (!res.ok) return null;
+
+      const json = (await res.json()) as RawDocumentCategoryForUpload;
+      if (!json.data) return null;
+
+      return {
+        uploadEnabled: json.data.upload_enabled,
+        requiresApproval: json.data.requires_approval,
+        allowedRoles: mapAllowedRoles(json.data.allowed_roles),
+        uploadRoles: mapAllowedRoles(json.data.upload_roles),
+      };
+    } catch (err) {
+      console.error(`[strapi] getDocumentCategoryForUpload(${documentId}) failed:`, err);
+      return null;
+    }
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Articles (news / events)

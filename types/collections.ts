@@ -40,6 +40,18 @@ export interface DocumentCategory {
    * logged-in user may read.
    */
   allowedRoles: string[];
+  /** Stage 2 — whether this category accepts site uploads at all. */
+  uploadEnabled: boolean;
+  /** Stage 2 — true → uploaded documents are created as drafts pending manual publish. */
+  requiresApproval: boolean;
+  /**
+   * Stage 2 — normalised role keys allowed to upload (mapAllowedRoles
+   * pattern). Empty means "fall back to the read rule" (allowedRoles empty
+   * → any logged-in user; else role ∈ allowedRoles) rather than "any
+   * logged-in user unconditionally" — see canUploadToCategory() in
+   * lib/document-upload-rule.ts, the single source of truth for this check.
+   */
+  uploadRoles: string[];
 }
 
 /** File metadata for a document — deliberately NOT the full StrapiMedia

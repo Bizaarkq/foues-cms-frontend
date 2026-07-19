@@ -5,14 +5,21 @@
  * content is never shown to anonymous visitors — the session gate runs
  * before any Strapi fetch. For logged-in users, categories + documents are
  * fetched WITHOUT role filtering (cached fetch, tags: ["documents"]) and
- * then filtered per request against the session role, mirroring the
- * navbar's filterByVisibility pattern: a category is visible when its
- * allowedRoles list is empty (any logged-in user) or contains the
- * session's role key.
+ * then filtered per request against the session role. A category is
+ * visible when the session can either READ it (allowedRoles empty → any
+ * logged-in user; else role ∈ allowedRoles — mirrors the navbar's
+ * filterByVisibility pattern) OR UPLOAD to it (canUploadToCategory) —
+ * an upload-only role must still see the category to reach its upload
+ * form, even though the documents list itself stays read-rule-gated.
  *
  * Downloads never expose the raw Strapi upload URL — links point at the
  * token-holding proxy `/api/documents/{documentId}`, which re-validates the
  * role gate server-to-server before streaming the file.
+ *
+ * Stage 2: each category section also renders the upload form
+ * (DocumentUploadForm, client component) when canUploadToCategory() passes
+ * for the current session. This is a UI-visibility check only — the
+ * submitDocument Server Action re-validates authoritatively.
  */
 
 import { Suspense } from "react";
@@ -20,7 +27,9 @@ import Link from "next/link";
 import { FileText, Lock } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { getDocumentRepositoryData } from "@/lib/strapi";
+import { canReadCategory, canUploadToCategory } from "@/lib/document-upload-rule";
 import { EmptyState } from "@/components/sdui/EmptyState";
+import DocumentUploadForm from "@/components/sdui/blocks/DocumentUploadForm";
 import type { DocumentRepositoryProps } from "@/types/blocks";
 import type { DocumentCategory, RepoDocument } from "@/types/collections";
 
@@ -137,10 +146,12 @@ async function RepositoryContent({
     categoryIds.length > 0 ? categoryIds : undefined
   );
 
-  // Role gate — same pattern as filterByVisibility (components/sdui/layouts/Navbar.tsx):
-  // empty allowedRoles = any logged-in user; otherwise the session role must match.
+  // Visibility gate: a category shows up if the session can either read its
+  // documents OR upload to it — an upload-only role (in uploadRoles but not
+  // allowedRoles) must still see the category to reach its upload form, even
+  // though the documents list itself stays gated to the read rule.
   const visibleCategories = categories.filter(
-    (c) => c.allowedRoles.length === 0 || (roleKey !== null && c.allowedRoles.includes(roleKey))
+    (c) => canReadCategory(c, roleKey) || canUploadToCategory(c, roleKey)
   );
 
   if (visibleCategories.length === 0) {
@@ -159,6 +170,8 @@ async function RepositoryContent({
           key={category.documentId}
           category={category}
           documents={documents.filter((d) => d.categoryId === category.documentId)}
+          canRead={canReadCategory(category, roleKey)}
+          canUpload={canUploadToCategory(category, roleKey)}
         />
       ))}
     </div>
@@ -168,9 +181,13 @@ async function RepositoryContent({
 function CategorySection({
   category,
   documents,
+  canRead,
+  canUpload,
 }: {
   category: DocumentCategory;
   documents: RepoDocument[];
+  canRead: boolean;
+  canUpload: boolean;
 }) {
   return (
     <div className="bg-[var(--color-foues-surface-raised)] p-6 shadow-md">
@@ -183,53 +200,64 @@ function CategorySection({
         </p>
       )}
 
-      {documents.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--color-foues-text-muted)]">
-          Todavía no hay documentos en esta categoría.
-        </p>
-      ) : (
-        <ul className="mt-4 flex flex-col divide-y divide-[var(--color-foues-border-subtle)]">
-          {documents.map((doc) => (
-            <li key={doc.documentId} className="flex items-center justify-between gap-4 py-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <FileText
-                  className="h-5 w-5 shrink-0"
-                  style={{ color: "var(--color-foues-text-muted)" }}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0">
-                  <p
-                    className="truncate text-sm font-semibold"
-                    style={{ color: "var(--color-foues-text-base)" }}
-                  >
-                    {doc.title}
-                  </p>
-                  <p className="text-xs text-[var(--color-foues-text-muted)]">
-                    {doc.publishedAt &&
-                      new Date(doc.publishedAt).toLocaleDateString("es-SV", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
-                    {doc.file &&
-                      formatFileSize(doc.file.size) &&
-                      ` · ${formatFileSize(doc.file.size)}`}
-                  </p>
+      {canRead ? (
+        documents.length === 0 ? (
+          <p className="mt-4 text-sm text-[var(--color-foues-text-muted)]">
+            Todavía no hay documentos en esta categoría.
+          </p>
+        ) : (
+          <ul className="mt-4 flex flex-col divide-y divide-[var(--color-foues-border-subtle)]">
+            {documents.map((doc) => (
+              <li key={doc.documentId} className="flex items-center justify-between gap-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FileText
+                    className="h-5 w-5 shrink-0"
+                    style={{ color: "var(--color-foues-text-muted)" }}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <p
+                      className="truncate text-sm font-semibold"
+                      style={{ color: "var(--color-foues-text-base)" }}
+                    >
+                      {doc.title}
+                    </p>
+                    <p className="text-xs text-[var(--color-foues-text-muted)]">
+                      {doc.publishedAt &&
+                        new Date(doc.publishedAt).toLocaleDateString("es-SV", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      {doc.file &&
+                        formatFileSize(doc.file.size) &&
+                        ` · ${formatFileSize(doc.file.size)}`}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              {doc.file && (
-                <a
-                  href={`/api/documents/${doc.documentId}`}
-                  className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)]"
-                  style={{ backgroundColor: "var(--color-foues-accent)" }}
-                >
-                  Descargar
-                </a>
-              )}
-            </li>
-          ))}
-        </ul>
+                {doc.file && (
+                  <a
+                    href={`/api/documents/${doc.documentId}`}
+                    className="shrink-0 rounded px-3 py-1.5 text-xs font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)]"
+                    style={{ backgroundColor: "var(--color-foues-accent)" }}
+                  >
+                    Descargar
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      ) : (
+        // Upload-only role: not entitled to read the list, but still allowed
+        // to upload — explain the split rather than showing an empty list.
+        <p className="mt-4 text-sm text-[var(--color-foues-text-muted)]">
+          Puedes subir documentos en esta categoría; la lista solo es visible
+          para los roles autorizados.
+        </p>
       )}
+
+      {canUpload && <DocumentUploadForm categoryId={category.documentId} />}
     </div>
   );
 }
