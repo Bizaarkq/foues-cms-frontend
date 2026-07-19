@@ -26,7 +26,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { FileText, Lock } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { getDocumentRepositoryData } from "@/lib/strapi";
+import { getDocumentRepositoryData, getSiteSettings } from "@/lib/strapi";
 import { canReadCategory, canUploadToCategory } from "@/lib/document-upload-rule";
 import { EmptyState } from "@/components/sdui/EmptyState";
 import DocumentUploadForm from "@/components/sdui/blocks/DocumentUploadForm";
@@ -112,6 +112,9 @@ export default async function DocumentRepository(props: DocumentRepositoryProps)
   }
 
   const roleKey = session.user?.role?.key ?? null;
+  // Fetched once here (not inside DocumentUploadForm) so the limit arrives
+  // only as a server-resolved prop — see lib/strapi.ts getSiteSettings().
+  const { maxUploadMb } = await getSiteSettings();
 
   return (
     <section className="w-full py-16 bg-[var(--color-foues-surface-sunken)]">
@@ -130,7 +133,7 @@ export default async function DocumentRepository(props: DocumentRepositoryProps)
           />
         </div>
         <Suspense fallback={<RepositorySkeleton />}>
-          <RepositoryContent {...props} roleKey={roleKey} />
+          <RepositoryContent {...props} roleKey={roleKey} maxUploadMb={maxUploadMb} />
         </Suspense>
       </div>
     </section>
@@ -140,7 +143,8 @@ export default async function DocumentRepository(props: DocumentRepositoryProps)
 async function RepositoryContent({
   categories: selectedCategories,
   roleKey,
-}: DocumentRepositoryProps & { roleKey: string | null }) {
+  maxUploadMb,
+}: DocumentRepositoryProps & { roleKey: string | null; maxUploadMb: number }) {
   const categoryIds = (selectedCategories ?? []).map((c) => c.documentId);
   const { categories, documents } = await getDocumentRepositoryData(
     categoryIds.length > 0 ? categoryIds : undefined
@@ -172,6 +176,7 @@ async function RepositoryContent({
           documents={documents.filter((d) => d.categoryId === category.documentId)}
           canRead={canReadCategory(category, roleKey)}
           canUpload={canUploadToCategory(category, roleKey)}
+          maxUploadMb={maxUploadMb}
         />
       ))}
     </div>
@@ -183,11 +188,13 @@ function CategorySection({
   documents,
   canRead,
   canUpload,
+  maxUploadMb,
 }: {
   category: DocumentCategory;
   documents: RepoDocument[];
   canRead: boolean;
   canUpload: boolean;
+  maxUploadMb: number;
 }) {
   return (
     <div className="bg-[var(--color-foues-surface-raised)] p-6 shadow-md">
@@ -257,7 +264,9 @@ function CategorySection({
         </p>
       )}
 
-      {canUpload && <DocumentUploadForm categoryId={category.documentId} />}
+      {canUpload && (
+        <DocumentUploadForm categoryId={category.documentId} maxUploadMb={maxUploadMb} />
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@
 import { revalidateTag } from "next/cache";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
-import { getDocumentCategoryForUpload } from "@/lib/strapi";
+import { getDocumentCategoryForUpload, getSiteSettings } from "@/lib/strapi";
 import { canUploadToCategory } from "@/lib/document-upload-rule";
 
 export interface SubmitDocumentResult {
@@ -23,11 +23,15 @@ export interface SubmitDocumentResult {
   published?: boolean;
 }
 
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB — design doc cap.
 const PDF_MAGIC_BYTES = "%PDF-";
 
-/** Maps a CMS-reported error code to a Spanish, user-facing message. */
-function mapUploadError(code: string | undefined): string {
+/**
+ * Maps a CMS-reported error code to a Spanish, user-facing message.
+ * `maxUploadMb` is threaded in (rather than re-fetched here) so the message
+ * matches the same site-settings value already used for the pre-CMS size
+ * check in submitDocument().
+ */
+function mapUploadError(code: string | undefined, maxUploadMb: number): string {
   switch (code) {
     case "invalid_title":
       return "El título es requerido (máximo 200 caracteres).";
@@ -42,7 +46,7 @@ function mapUploadError(code: string | undefined): string {
     case "invalid_file_signature":
       return "El archivo debe ser un PDF válido.";
     case "file_too_large":
-      return "El archivo supera el tamaño máximo permitido (15 MB).";
+      return `El archivo supera el tamaño máximo permitido (${maxUploadMb} MB).`;
     case "invalid_email":
       return "No se pudo verificar tu correo institucional. Vuelve a iniciar sesión.";
     default:
@@ -59,6 +63,11 @@ export async function submitDocument(
     if (!session) {
       return { ok: false, error: "Debes iniciar sesión para subir documentos." };
     }
+
+    // Admin-editable ceiling — see lib/strapi.ts getSiteSettings() (clamped
+    // to [1, 15], matching next.config.ts's build-time bodySizeLimit).
+    const { maxUploadMb } = await getSiteSettings();
+    const maxFileSize = maxUploadMb * 1024 * 1024;
 
     const categoryId = formData.get("categoryId");
     if (typeof categoryId !== "string" || categoryId.trim() === "") {
@@ -93,8 +102,8 @@ export async function submitDocument(
     if (!(file instanceof File)) {
       return { ok: false, error: "Debes seleccionar un archivo." };
     }
-    if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
-      return { ok: false, error: "El archivo debe pesar como máximo 15 MB." };
+    if (file.size <= 0 || file.size > maxFileSize) {
+      return { ok: false, error: `El archivo debe pesar como máximo ${maxUploadMb} MB.` };
     }
     if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
       return { ok: false, error: "Solo se aceptan archivos PDF." };
@@ -133,7 +142,12 @@ export async function submitDocument(
       };
     }
 
-    let json: { ok?: boolean; published?: boolean; error?: string } | null = null;
+    let json: {
+      ok?: boolean;
+      published?: boolean;
+      error?: string;
+      limit_mb?: number;
+    } | null = null;
     try {
       json = await res.json();
     } catch {
@@ -144,7 +158,13 @@ export async function submitDocument(
       console.error(
         `[submit-document] CMS upload failed: HTTP ${res.status} — ${JSON.stringify(json)}`
       );
-      return { ok: false, error: mapUploadError(json?.error) };
+      // Prefer the CMS-reported limit (authoritative, read fresh per request)
+      // over our tag-cached copy, which may be stale right after an admin
+      // lowers the value.
+      return {
+        ok: false,
+        error: mapUploadError(json?.error, json?.limit_mb ?? maxUploadMb),
+      };
     }
 
     // Expire the cached repository fetch so a published upload shows up

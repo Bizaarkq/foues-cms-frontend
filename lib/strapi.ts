@@ -881,6 +881,64 @@ export async function getGlobalTheme(): Promise<GlobalTheme | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Site settings (admin-editable registry — currently: upload size limit)
+// ---------------------------------------------------------------------------
+
+export interface SiteSettings {
+  maxUploadMb: number;
+}
+
+const DEFAULT_SITE_SETTINGS: SiteSettings = { maxUploadMb: 15 };
+
+// next.config.ts's `serverActions.bodySizeLimit: '16mb'` is a build-time
+// Next.js setting (that file deliberately imports no env/CMS config so
+// Docker builds work without secrets) — the CMS value can only LOWER the
+// effective limit, never raise it past 15 MB without a rebuild. Matches the
+// CMS `site-setting.max_upload_mb` schema bounds (min 1, max 15).
+const MAX_UPLOAD_MB_CEILING = 15;
+const MAX_UPLOAD_MB_FLOOR = 1;
+
+const SITE_SETTINGS_QUERY = /* GraphQL */ `
+  query GetSiteSettings {
+    siteSetting {
+      max_upload_mb
+    }
+  }
+`;
+
+interface SiteSettingResponse {
+  siteSetting: { max_upload_mb: number | null } | null;
+}
+
+/**
+ * getSiteSettings — fetches the admin-editable site settings registry.
+ *
+ * Mirrors getGlobalTheme()'s defensive pattern: on ANY failure (network,
+ * GraphQL errors, Strapi unreachable, missing public read permission, or a
+ * null response) it logs and falls back to hardcoded defaults so upload UX
+ * never breaks. The resolved value is additionally clamped to [1, 15] even
+ * on a successful response, in case of bad CMS data.
+ *
+ * @returns SiteSettings — always populated (defaults on failure/bad data).
+ */
+export async function getSiteSettings(): Promise<SiteSettings> {
+  try {
+    const data = await gql<SiteSettingResponse>(SITE_SETTINGS_QUERY, undefined, {
+      tags: ["site-settings"],
+    });
+    const raw = data.siteSetting?.max_upload_mb;
+    if (raw === null || raw === undefined || !Number.isFinite(raw)) {
+      return DEFAULT_SITE_SETTINGS;
+    }
+    const maxUploadMb = Math.min(MAX_UPLOAD_MB_CEILING, Math.max(MAX_UPLOAD_MB_FLOOR, raw));
+    return { maxUploadMb };
+  } catch (err) {
+    console.error("[strapi] getSiteSettings() failed:", err);
+    return DEFAULT_SITE_SETTINGS;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Magazine issues
 // ---------------------------------------------------------------------------
 

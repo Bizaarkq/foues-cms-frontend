@@ -11,6 +11,7 @@
  *   - model === 'article'        → revalidateTag('articles') + revalidateTag('article:${slug}')
  *   - model === 'document'       → revalidateTag('documents')
  *   - model === 'document-category' → revalidateTag('documents')
+ *   - model === 'site-setting'   → revalidateTag('site-settings')
  *   - any other model            → revalidateTag('pages') + revalidateTag('routes')
  *     (footer, global-theme, block-group, staff, organizational-unit, form…
  *      all ride inside the unified page query, so every page fetch must expire;
@@ -108,6 +109,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     case 'document-category':
       // Same fetch also lists categories — role gate lives on this model.
       tags.push('documents');
+      break;
+
+    case 'site-setting':
+      // getSiteSettings() (upload size limit, etc).
+      tags.push('site-settings');
       break;
 
     default:

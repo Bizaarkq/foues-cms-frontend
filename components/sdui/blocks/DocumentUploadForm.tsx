@@ -14,7 +14,13 @@ import { submitDocument, type SubmitDocumentResult } from "@/app/actions/submit-
 
 const initialState: SubmitDocumentResult | null = null;
 
-export default function DocumentUploadForm({ categoryId }: { categoryId: string }) {
+export default function DocumentUploadForm({
+  categoryId,
+  maxUploadMb,
+}: {
+  categoryId: string;
+  maxUploadMb: number;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [state, formAction, isPending] = useActionState(submitDocument, initialState);
   const formRef = useRef<HTMLFormElement>(null);
@@ -85,6 +91,9 @@ export default function DocumentUploadForm({ categoryId }: { categoryId: string 
           disabled={isPending}
           className="text-sm text-[var(--color-foues-text-base)] file:mr-3 file:rounded file:border-0 file:bg-[var(--color-foues-accent)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
         />
+        <span className="text-xs text-[var(--color-foues-text-muted)]">
+          PDF, máximo {maxUploadMb} MB.
+        </span>
       </div>
 
       <div className="flex items-center gap-3">
