@@ -8,7 +8,7 @@
  *
  * New design: this app issues a short-lived, single-use upload ticket
  * (session + role validated here, exactly as before) by calling the CMS's
- * `POST {STRAPI_URL}/documents/upload-tickets`. The BROWSER then uploads the
+ * `POST {STRAPI_URL}/api/documents/upload-tickets`. The BROWSER then uploads the
  * file DIRECTLY to the CMS via XHR against the returned `uploadUrl` — this
  * app never touches file bytes at all, on either hop. See
  * `components/sdui/blocks/DocumentUploadForm.tsx` for the client side of
@@ -151,7 +151,7 @@ export async function POST(request: Request): Promise<Response> {
   // --- 5. Ask the CMS to issue a one-time upload ticket. ---
   let res: Response;
   try {
-    res = await fetch(`${env.strapi.url}/documents/upload-tickets`, {
+    res = await fetch(`${env.strapi.url}/api/documents/upload-tickets`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
