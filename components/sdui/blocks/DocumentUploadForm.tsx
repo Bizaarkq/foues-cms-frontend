@@ -2,11 +2,11 @@
 /**
  * DocumentUploadForm — stage 2 upload UI for the document repository block.
  *
- * Rendered as the sole content of the `DocumentUploadModal` dialog for a
- * category (button + <dialog> live in that wrapper now, not here). This
- * component owns only the form fields and the upload contract: title + PDF
- * file, uploaded in TWO network steps under the ticket-based upload
- * redesign:
+ * Rendered as the sole content of the `DocumentUploadSection` inline panel
+ * for a category (trigger button + collapsible panel live in that wrapper,
+ * not here). This component owns only the form fields and the upload
+ * contract: title + PDF file, uploaded in TWO network steps under the
+ * ticket-based upload redesign:
  *   A. Client-side pre-checks (no network) — title, file selection,
  *      extension, and size are all validated locally first.
  *   B. `POST /api/documents/upload-ticket` (this app) — session + role
@@ -30,12 +30,13 @@
  * (its own `/api/documents/upload/{ticket}` controller).
  *
  * Status is reported upward via `onStatusChange` on every transition, so
- * `DocumentUploadModal` can block closing while a request is in flight and
- * schedule the auto-close + `router.refresh()` once it sees "success" — this
- * component has no opinion on the dialog's lifecycle, only on the upload
- * itself. On success the field markup is unmounted in favor of a plain
- * success message (the modal closes shortly after); on error the form stays
- * exactly as the user left it, with the mapped message shown below it.
+ * `DocumentUploadSection` can block collapsing while a request is in flight
+ * and schedule the auto-collapse + `router.refresh()` once it sees
+ * "success" — this component has no opinion on the panel's lifecycle, only
+ * on the upload itself. On success the field markup is unmounted in favor
+ * of a plain success message (the panel collapses shortly after); on error
+ * the form stays exactly as the user left it, with the mapped message shown
+ * below it.
  */
 import { useRef, useState, type FormEvent } from "react";
 import { mapUploadError } from "@/lib/document-upload-messages";

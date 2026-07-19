@@ -19,9 +19,12 @@
  * Stage 2: each category section header shows a "Subir documento" button
  * at its top-right when canUploadToCategory() passes for the current
  * session — this is a UI-visibility check only, `upload-ticket/route.ts`
- * re-validates authoritatively. The button opens DocumentUploadModal
- * (client component: trigger + native <dialog> + DocumentUploadForm), so a
- * long document list no longer has to be scrolled past to reach the form.
+ * re-validates authoritatively. The button expands DocumentUploadSection's
+ * inline panel between the header and the document list (client wrapper:
+ * trigger + collapsible panel + DocumentUploadForm), so a long document
+ * list no longer has to be scrolled past to reach the form. Read-only
+ * viewers get plain RSC markup — the client wrapper only mounts when the
+ * session can upload.
  */
 
 import { Suspense } from "react";
@@ -31,7 +34,7 @@ import { auth } from "@/lib/auth";
 import { getDocumentRepositoryData, getSiteSettings } from "@/lib/strapi";
 import { canReadCategory, canUploadToCategory } from "@/lib/document-upload-rule";
 import { EmptyState } from "@/components/sdui/EmptyState";
-import DocumentUploadModal from "@/components/sdui/blocks/DocumentUploadModal";
+import DocumentUploadSection from "@/components/sdui/blocks/DocumentUploadSection";
 import type { DocumentRepositoryProps } from "@/types/blocks";
 import type { DocumentCategory, RepoDocument } from "@/types/collections";
 
@@ -198,42 +201,35 @@ function CategorySection({
   canUpload: boolean;
   maxUploadMb: number;
 }) {
-  return (
-    <div className="bg-[var(--color-foues-surface-raised)] p-6 shadow-md">
-      {/* Header row: category title/description on the left, the upload
-          trigger pinned to the top-right — keeps it reachable without
-          scrolling past a long document list. The document count only
-          renders for sessions that pass the READ rule: upload-only roles
-          are not entitled to know how many documents the list holds. */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="text-lg font-bold" style={{ color: "var(--color-foues-navy)" }}>
-            {category.name}
-            {canRead && documents.length > 0 && (
-              <span
-                className="ml-3 align-middle text-xs font-normal tabular-nums text-[var(--color-foues-text-muted)]"
-                aria-label={`${documents.length} documentos`}
-              >
-                {documents.length} {documents.length === 1 ? "documento" : "documentos"}
-              </span>
-            )}
-          </h3>
-          {category.description && (
-            <p className="mt-1 text-sm text-[var(--color-foues-text-secondary)]">
-              {category.description}
-            </p>
-          )}
-        </div>
-        {canUpload && (
-          <DocumentUploadModal
-            categoryId={category.documentId}
-            categoryName={category.name}
-            maxUploadMb={maxUploadMb}
-          />
+  // Header + body are built once and either wrapped by the client-side
+  // DocumentUploadSection (upload-capable session: adds the top-right
+  // trigger and the inline collapsible form panel between header and list)
+  // or rendered as plain server markup (read-only session: zero client JS).
+  // The document count only renders for sessions that pass the READ rule:
+  // upload-only roles are not entitled to know how many documents the list
+  // holds.
+  const headerBlock = (
+    <div className="min-w-0">
+      <h3 className="text-lg font-bold" style={{ color: "var(--color-foues-navy)" }}>
+        {category.name}
+        {canRead && documents.length > 0 && (
+          <span
+            className="ml-3 align-middle text-xs font-normal tabular-nums text-[var(--color-foues-text-muted)]"
+            aria-label={`${documents.length} documentos`}
+          >
+            {documents.length} {documents.length === 1 ? "documento" : "documentos"}
+          </span>
         )}
-      </div>
+      </h3>
+      {category.description && (
+        <p className="mt-1 text-sm text-[var(--color-foues-text-secondary)]">
+          {category.description}
+        </p>
+      )}
+    </div>
+  );
 
-      {canRead ? (
+  const body = canRead ? (
         documents.length === 0 ? (
           <p className="mt-4 text-sm text-[var(--color-foues-text-muted)]">
             Todavía no hay documentos en esta categoría.
@@ -307,14 +303,31 @@ function CategorySection({
               );
             })}
           </ul>
-        )
+    )
+  ) : (
+    // Upload-only role: not entitled to read the list, but still allowed
+    // to upload — explain the split rather than showing an empty list.
+    <p className="mt-4 text-sm text-[var(--color-foues-text-muted)]">
+      Puedes subir documentos en esta categoría; la lista solo es visible
+      para los roles autorizados.
+    </p>
+  );
+
+  return (
+    <div className="bg-[var(--color-foues-surface-raised)] p-6 shadow-md">
+      {canUpload ? (
+        <DocumentUploadSection
+          categoryId={category.documentId}
+          maxUploadMb={maxUploadMb}
+          header={headerBlock}
+        >
+          {body}
+        </DocumentUploadSection>
       ) : (
-        // Upload-only role: not entitled to read the list, but still allowed
-        // to upload — explain the split rather than showing an empty list.
-        <p className="mt-4 text-sm text-[var(--color-foues-text-muted)]">
-          Puedes subir documentos en esta categoría; la lista solo es visible
-          para los roles autorizados.
-        </p>
+        <>
+          <div className="flex items-start justify-between gap-4">{headerBlock}</div>
+          {body}
+        </>
       )}
     </div>
   );
