@@ -1311,6 +1311,19 @@ const ARTICLES_QUERY = /* GraphQL */ `
   }
 `;
 
+const SEARCH_ARTICLES_QUERY = /* GraphQL */ `
+  query SearchArticles($filters: ArticleFiltersInput, $limit: Int!) {
+    articles(filters: $filters, sort: "publishedAt:desc", pagination: { limit: $limit }) {
+      documentId
+      Title
+      slug
+      category
+      event_date
+      publishedAt
+    }
+  }
+`;
+
 const ARTICLE_BY_SLUG_QUERY = /* GraphQL */ `
   query ArticleBySlug($slug: String!) {
     articles(filters: { slug: { eq: $slug } }, pagination: { limit: 1 }) {
@@ -1370,6 +1383,36 @@ export async function getArticles({
   } catch (err) {
     console.error("[strapi] getArticles() failed:", err);
     return empty;
+  }
+}
+
+/** Slim article shape returned by searchArticles (no media, no body). */
+export interface ArticleSearchHit {
+  documentId: string;
+  Title: string;
+  slug: string | null;
+  category: Article["category"];
+  event_date: string | null;
+  publishedAt: string | null;
+}
+
+/**
+ * searchArticles — published articles whose title contains `q`
+ * (case-insensitive, Strapi containsi), newest first. Serves the
+ * /api/articles/search route handler; short 5-minute cache per distinct
+ * query. Returns [] on failure — search never breaks the page.
+ */
+export async function searchArticles(q: string, limit = 8): Promise<ArticleSearchHit[]> {
+  try {
+    const data = await gql<{ articles: ArticleSearchHit[] | null }>(
+      SEARCH_ARTICLES_QUERY,
+      { filters: { Title: { containsi: q } }, limit },
+      { revalidate: 300, tags: ["articles"] }
+    );
+    return data.articles ?? [];
+  } catch (err) {
+    console.error("[strapi] searchArticles() failed:", err);
+    return [];
   }
 }
 

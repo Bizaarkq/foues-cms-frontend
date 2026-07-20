@@ -14,6 +14,7 @@ import { Newspaper } from "lucide-react";
 import type { CSSProperties } from "react";
 import { getArticles } from "@/lib/strapi";
 import { EmptyState } from "@/components/sdui/EmptyState";
+import { ArticleListSearch } from "@/components/sdui/blocks/ArticleListSearch";
 import { CARD_COMPONENTS, CardDefault } from "@/components/sdui/elements/cards";
 import { PaginationNav } from "@/components/sdui/elements/PaginationNav";
 import type { ArticleListProps } from "@/types/blocks";
@@ -81,6 +82,7 @@ export default function ArticleList(props: ArticleListProps) {
             />
           </div>
         )}
+        <ArticleListSearch />
         <Suspense fallback={<ListSkeleton />}>
           <ArticleGrid {...props} />
         </Suspense>
