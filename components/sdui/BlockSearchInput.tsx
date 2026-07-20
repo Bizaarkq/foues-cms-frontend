@@ -22,7 +22,7 @@ export function BlockSearchInput({
   placeholder?: string;
 }) {
   return (
-    <div className="relative w-full max-w-md">
+    <div className="relative w-full">
       <Search
         className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
         style={{ color: "var(--color-foues-text-muted)" }}

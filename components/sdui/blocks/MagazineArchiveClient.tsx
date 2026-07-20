@@ -48,11 +48,16 @@ export function MagazineArchiveClient({ issues }: { issues: ArchiveIssue[] }) {
         placeholder="Buscar por título o número de edición"
       />
 
-      <p className="sr-only" aria-live="polite">
-        {q
-          ? `${filtered.length} ${filtered.length === 1 ? "edición encontrada" : "ediciones encontradas"}`
-          : ""}
-      </p>
+      {q && filtered.length > 0 && (
+        <p
+          className="text-sm font-semibold"
+          style={{ color: "var(--color-foues-navy)" }}
+          aria-live="polite"
+        >
+          {filtered.length} {filtered.length === 1 ? "edición encontrada" : "ediciones encontradas"}{" "}
+          para &ldquo;{q}&rdquo;
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState

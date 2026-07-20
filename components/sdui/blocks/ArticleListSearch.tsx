@@ -104,10 +104,21 @@ export function ArticleListSearch() {
               No se encontraron artículos para &ldquo;{q}&rdquo;.
             </p>
           ) : (
-            <ul
-              className="divide-y rounded border bg-[var(--color-foues-surface-raised)] shadow-sm"
-              style={{ borderColor: "var(--color-foues-border-subtle)" }}
-            >
+            <>
+              <p
+                className="mb-2 text-sm font-semibold"
+                style={{ color: "var(--color-foues-navy)" }}
+              >
+                {current.results.length}{" "}
+                {current.results.length === 1
+                  ? "resultado encontrado"
+                  : "resultados encontrados"}{" "}
+                para &ldquo;{q}&rdquo;
+              </p>
+              <ul
+                className="divide-y rounded border bg-[var(--color-foues-surface-raised)] shadow-sm"
+                style={{ borderColor: "var(--color-foues-border-subtle)" }}
+              >
               {current.results.map((result) => (
                 <li key={result.slug} className="border-[var(--color-foues-border-subtle)]">
                   <Link
@@ -131,7 +142,8 @@ export function ArticleListSearch() {
                   </Link>
                 </li>
               ))}
-            </ul>
+              </ul>
+            </>
           )}
         </div>
       )}

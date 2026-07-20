@@ -100,11 +100,16 @@ export function DocumentRepositoryClient({
         placeholder="Buscar documentos por título o categoría"
       />
 
-      <p className="sr-only" aria-live="polite">
-        {q
-          ? `${matchCount} ${matchCount === 1 ? "documento encontrado" : "documentos encontrados"}`
-          : ""}
-      </p>
+      {q && sections.length > 0 && (
+        <p
+          className="text-sm font-semibold"
+          style={{ color: "var(--color-foues-navy)" }}
+          aria-live="polite"
+        >
+          {matchCount} {matchCount === 1 ? "documento encontrado" : "documentos encontrados"}{" "}
+          para &ldquo;{q}&rdquo;
+        </p>
+      )}
 
       {sections.length === 0 ? (
         <EmptyState icon={SearchX} message={`No se encontraron documentos para "${q}".`} />
