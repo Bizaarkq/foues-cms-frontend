@@ -13,7 +13,6 @@ import type {
   ButtonElement,
   TimelineItemElement,
   StepElement,
-  ScheduleItemElement,
   ScheduleEntryElement,
   QuickLinkItem,
   ListItem,
@@ -117,11 +116,6 @@ export interface CtaProps {
   title: string | null;
   description: string | null;
   buttons: ButtonElement[];
-}
-
-export interface CalendarProps {
-  title: string | null;
-  items: ScheduleItemElement[];
 }
 
 export interface MapProps {
@@ -322,7 +316,6 @@ export type SDUIBlock =
   | ({ __component: "blocks.process-steps" } & ProcessStepsProps)
   | ({ __component: "blocks.rich-text" } & RichTextProps)
   | ({ __component: "blocks.cta" } & CtaProps)
-  | ({ __component: "blocks.calendar" } & CalendarProps)
   | ({ __component: "blocks.map" } & MapProps)
   | ({ __component: "blocks.staff-section" } & StaffSectionProps)
   | ({ __component: "blocks.bullet-list" } & BulletListProps)

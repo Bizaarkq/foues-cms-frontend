@@ -47,22 +47,6 @@ export interface StepElement {
   icon: string | null;
 }
 
-/** Schedule category enum (matches elements.schedule-item). */
-export type ScheduleCategory =
-  | "academic"
-  | "event"
-  | "deadline"
-  | "holiday"
-  | "other";
-
-/** elements.schedule-item */
-export interface ScheduleItemElement {
-  date: string; // ISO date string "YYYY-MM-DD"
-  title: string;
-  description: string | null;
-  category: ScheduleCategory;
-}
-
 /** elements.quick-link-item */
 export interface QuickLinkItem {
   label: string;
@@ -76,12 +60,22 @@ export interface ListItem {
   text: string;
 }
 
+/** Date category enum (matches elements.date-entry; values are unaccented
+ *  because Strapi enums travel as GraphQL enum names). */
+export type DateCategory =
+  | "academico"
+  | "evento"
+  | "fecha_limite"
+  | "asueto"
+  | "otro";
+
 /** elements.date-entry */
 export interface DateEntry {
   start_date: string;      // ISO "YYYY-MM-DD"
   end_date: string | null; // ISO "YYYY-MM-DD" or null
   label: string;
   description: string | null;
+  category: DateCategory | null;
 }
 
 /** elements.schedule-entry */

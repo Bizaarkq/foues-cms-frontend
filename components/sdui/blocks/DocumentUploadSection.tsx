@@ -113,14 +113,16 @@ export default function DocumentUploadSection({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
+      {/* Mobile: title + description stack first, trigger flows below them;
+          from sm up the trigger returns to the section's top-right corner. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         {header}
         <button
           type="button"
           onClick={expanded ? closePanel : openPanel}
           disabled={expanded && isUploading}
           aria-expanded={expanded}
-          className="inline-flex shrink-0 items-center gap-2 rounded px-3 py-1.5 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] disabled:opacity-40"
+          className="inline-flex shrink-0 items-center gap-2 self-start rounded px-3 py-1.5 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] disabled:opacity-40"
           style={{
             color: "var(--color-foues-accent)",
             border: "1px solid var(--color-foues-accent)",

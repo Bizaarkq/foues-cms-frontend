@@ -10,12 +10,17 @@
  *  - Visit beacon: fires once on mount via fetch POST to /api/magazine-track.
  *  - Depth beacon: fires on the `pagehide` window event via fetch keepalive,
  *    reporting maxPercent (deepest page reached, 0-100).
+ *  - Reading stage: sunken framed container + control bar (prev/next buttons,
+ *    live page counter) so the interactive area has a visible boundary.
+ *  - Keyboard navigation: ArrowLeft/ArrowRight flip pages via the library's
+ *    imperative pageFlip() API (skipped while typing in form fields).
  *
  * All props must be serialisable — URLs are resolved to absolute by
  * MagazineViewer before crossing the server → client boundary.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 // react-pageflip is SSR-safe (all DOM access inside useEffect).
 // We cast it to a looser props interface because the library's TypeScript
 // definitions mark all IFlipSetting fields as required even though the
@@ -55,8 +60,15 @@ interface FlipBookProps {
   onFlip?: (e: { data: number }) => void;
 }
 
+// Imperative API exposed by react-pageflip through its ref
+interface FlipBookRef {
+  pageFlip(): { flipPrev(): void; flipNext(): void } | undefined;
+}
+
 // Cast away the strict required-field interface from the library types
-const HTMLFlipBook = HTMLFlipBookRaw as unknown as React.ComponentType<FlipBookProps>;
+const HTMLFlipBook = HTMLFlipBookRaw as unknown as React.ForwardRefExoticComponent<
+  FlipBookProps & React.RefAttributes<FlipBookRef>
+>;
 
 // ---------------------------------------------------------------------------
 // Page shape (URLs already resolved to absolute by MagazineViewer)
@@ -83,6 +95,45 @@ interface FlipbookClientProps {
 export function FlipbookClient({ documentId, pages }: FlipbookClientProps) {
   const [currentPage, setCurrentPage] = useState(0);
   const maxPageRef = useRef(0);
+  const bookRef = useRef<FlipBookRef | null>(null);
+
+  // Near-instant flip for readers who prefer reduced motion (lazy init:
+  // the library reads flippingTime once at mount)
+  const [flippingTime] = useState(() =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? 100
+      : 700
+  );
+
+  const flipPrev = useCallback(() => bookRef.current?.pageFlip()?.flipPrev(), []);
+  const flipNext = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
+
+  // Keyboard navigation — the on-screen hint promises arrow keys, so honour it
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        flipPrev();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        flipNext();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [flipPrev, flipNext]);
 
   // Visit beacon — fires once on mount
   useEffect(() => {
@@ -137,81 +188,129 @@ export function FlipbookClient({ documentId, pages }: FlipbookClientProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 py-8">
-      {/* Page counter */}
-      <p
-        className="text-sm font-medium"
-        style={{ color: "var(--color-foues-text-secondary)" }}
-        aria-live="polite"
+    <div className="py-8">
+      {/* Reading stage — the frame delimits where the interactive flipbook lives */}
+      <div
+        className="overflow-hidden rounded-2xl border"
+        style={{ borderColor: "var(--color-foues-border-subtle)" }}
       >
-        Página {currentPage + 1} de {pages.length}
-      </p>
-
-      {/* Flipbook */}
-      <div className="w-full flex justify-center overflow-hidden">
-        <HTMLFlipBook
-          className=""
-          style={{}}
-          width={500}
-          height={700}
-          size="stretch"
-          minWidth={280}
-          maxWidth={1000}
-          minHeight={350}
-          maxHeight={1400}
-          startPage={0}
-          drawShadow
-          flippingTime={700}
-          usePortrait
-          startZIndex={0}
-          autoSize
-          maxShadowOpacity={0.5}
-          showCover={false}
-          mobileScrollSupport
-          clickEventForward
-          useMouseEvents
-          swipeDistance={30}
-          showPageCorners
-          disableFlipByClick={false}
-          onFlip={handleFlip}
+        <div
+          className="flex w-full justify-center overflow-hidden px-3 py-6 sm:px-8 sm:py-10"
+          style={{
+            background: "var(--color-foues-surface-sunken)",
+            boxShadow: "inset 0 2px 12px rgb(0 0 0 / 0.08)",
+          }}
         >
-          {pages.map((page, i) => {
-            const inWindow = Math.abs(i - currentPage) <= WINDOW_RADIUS;
-            return (
-              <div
-                key={i}
-                className="bg-white w-full h-full flex items-center justify-center overflow-hidden"
-              >
-                {inWindow ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={page.url}
-                    alt={`Página ${i + 1}`}
-                    className="w-full h-full object-contain"
-                    width={page.width ?? undefined}
-                    height={page.height ?? undefined}
-                    loading={i === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full"
-                    style={{ background: "var(--color-foues-surface-sunken)" }}
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-            );
-          })}
-        </HTMLFlipBook>
+          <HTMLFlipBook
+            ref={bookRef}
+            className=""
+            style={{}}
+            width={500}
+            height={700}
+            size="stretch"
+            minWidth={280}
+            maxWidth={1000}
+            minHeight={350}
+            maxHeight={1400}
+            startPage={0}
+            drawShadow
+            flippingTime={flippingTime}
+            usePortrait
+            startZIndex={0}
+            autoSize
+            maxShadowOpacity={0.5}
+            showCover={false}
+            mobileScrollSupport
+            clickEventForward
+            useMouseEvents
+            swipeDistance={30}
+            showPageCorners
+            disableFlipByClick={false}
+            onFlip={handleFlip}
+          >
+            {pages.map((page, i) => {
+              const inWindow = Math.abs(i - currentPage) <= WINDOW_RADIUS;
+              return (
+                <div
+                  key={i}
+                  className="bg-white w-full h-full flex items-center justify-center overflow-hidden"
+                >
+                  {inWindow ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={page.url}
+                      alt={`Página ${i + 1}`}
+                      className="w-full h-full object-contain"
+                      width={page.width ?? undefined}
+                      height={page.height ?? undefined}
+                      loading={i === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full"
+                      style={{ background: "var(--color-foues-surface-sunken)" }}
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </HTMLFlipBook>
+        </div>
+
+        {/* Control bar — explicit prev/next + live page counter */}
+        <div
+          className="flex items-center justify-center gap-3 border-t px-4 py-3 sm:gap-4"
+          style={{
+            borderColor: "var(--color-foues-border-subtle)",
+            background: "var(--color-foues-surface-raised)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={flipPrev}
+            disabled={currentPage === 0}
+            aria-label="Página anterior"
+            className="flex h-11 w-11 items-center justify-center rounded-full border transition-colors hover:bg-[var(--color-foues-surface-sunken)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            style={{
+              borderColor: "var(--color-foues-border-subtle)",
+              color: "var(--color-foues-navy)",
+            }}
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <p
+            className="min-w-[9rem] text-center text-sm font-medium tabular-nums"
+            style={{ color: "var(--color-foues-text-secondary)" }}
+            aria-live="polite"
+          >
+            Página {currentPage + 1} de {pages.length}
+          </p>
+
+          <button
+            type="button"
+            onClick={flipNext}
+            disabled={currentPage >= pages.length - 1}
+            aria-label="Página siguiente"
+            className="flex h-11 w-11 items-center justify-center rounded-full border transition-colors hover:bg-[var(--color-foues-surface-sunken)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            style={{
+              borderColor: "var(--color-foues-border-subtle)",
+              color: "var(--color-foues-navy)",
+            }}
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* Navigation hint */}
       <p
-        className="text-xs text-center"
+        className="mt-3 text-center text-xs"
         style={{ color: "var(--color-foues-text-muted)" }}
       >
-        Usá las flechas del teclado o arrastrá las páginas para navegar
+        Pasá de página con las flechas del teclado, los botones o arrastrando las esquinas
       </p>
     </div>
   );
