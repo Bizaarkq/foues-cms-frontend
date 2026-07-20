@@ -5,8 +5,11 @@
  * "Calendario" block (client component: the day dialog needs interactivity;
  * the list view stays RSC in KeyDates.tsx).
  *
- * Single anchored month (the first item's start month) + "Otras fechas"
- * below for out-of-month items — deliberately NOT a full-year navigator.
+ * Month navigation: the initial month is the visitor's CURRENT month,
+ * clamped into [first, last] month carrying dates; the arrows jump to the
+ * nearest month that has dates (never paging through empty months). A
+ * current month inside the range but without dates still renders, with an
+ * inline note. Events spanning a month boundary appear in both months.
  * Desktop (md+) day cells stack up to MAX_VISIBLE_CHIPS category-colored
  * event chips plus a "+N más" hint; mobile cells show colored dots instead
  * (chip text is unreadable at ~45px cells). Any day with events opens a
@@ -17,7 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { DateEntry } from "@/types/elements";
 import { EmptyState } from "@/components/sdui/EmptyState";
 import {
@@ -33,7 +36,42 @@ import {
 const WEEKDAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
 const MAX_VISIBLE_CHIPS = 3;
 
+/** Comparable month key: year * 12 + month (0-based). */
+function toMonthKey(d: Date): number {
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+/** Sorted unique keys of every month overlapped by at least one item's range. */
+function monthKeysWithEvents(items: DateEntry[]): number[] {
+  const keys = new Set<number>();
+  for (const item of items) {
+    const start = toMonthKey(parseISODate(item.start_date));
+    const end =
+      item.end_date && item.end_date > item.start_date
+        ? toMonthKey(parseISODate(item.end_date))
+        : start;
+    for (let key = start; key <= end; key++) keys.add(key);
+  }
+  return [...keys].sort((a, b) => a - b);
+}
+
+const monthNameFmt = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" });
+
+function monthKeyName(key: number): string {
+  return monthNameFmt.format(new Date(Math.floor(key / 12), key % 12, 1));
+}
+
 export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
+  // Month being viewed. Initial = the visitor's current month, clamped into
+  // the [first, last] months carrying dates. Computed in the initializer so
+  // it runs once; a server/client TZ midnight edge would at most trigger a
+  // one-off hydration re-render with the visitor's month — acceptable.
+  const [viewKey, setViewKey] = useState<number>(() => {
+    const keys = monthKeysWithEvents(items);
+    if (keys.length === 0) return toMonthKey(new Date());
+    const today = toMonthKey(new Date());
+    return Math.min(Math.max(today, keys[0]), keys[keys.length - 1]);
+  });
   // Day-of-month whose dialog is open (null = closed).
   const [openDay, setOpenDay] = useState<number | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -50,30 +88,37 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
     return <EmptyState icon={CalendarDays} message="Todavía no hay fechas configuradas." />;
   }
 
-  // Anchor month = first item's start_date after sorting
   const sorted = [...items].sort(
     (a, b) => parseISODate(a.start_date).getTime() - parseISODate(b.start_date).getTime()
   );
 
-  const anchor = parseISODate(sorted[0].start_date);
-  const anchorYear = anchor.getFullYear();
-  const anchorMonth = anchor.getMonth(); // 0-based
+  const eventKeys = monthKeysWithEvents(sorted);
+  const anchorYear = Math.floor(viewKey / 12);
+  const anchorMonth = viewKey % 12; // 0-based
 
-  const monthName = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(
-    new Date(anchorYear, anchorMonth, 1)
-  );
+  // Arrow targets: nearest month WITH dates before/after the viewed one —
+  // empty months in between are skipped, not paged through.
+  const prevKey = [...eventKeys].reverse().find((k) => k < viewKey);
+  const nextKey = eventKeys.find((k) => k > viewKey);
 
+  function goTo(key: number | undefined) {
+    if (key === undefined) return;
+    setOpenDay(null);
+    setViewKey(key);
+  }
+
+  const monthName = monthKeyName(viewKey);
   const totalDays = daysInMonth(anchorYear, anchorMonth);
   const firstDayOffset = getMondayOffset(new Date(anchorYear, anchorMonth, 1).getDay());
 
-  // Items inside and outside the anchor month
+  // Items overlapping the viewed month (boundary-spanning events show in both)
   const inMonth = sorted.filter((item) => {
-    const d = parseISODate(item.start_date);
-    return d.getFullYear() === anchorYear && d.getMonth() === anchorMonth;
-  });
-  const outOfMonth = sorted.filter((item) => {
-    const d = parseISODate(item.start_date);
-    return !(d.getFullYear() === anchorYear && d.getMonth() === anchorMonth);
+    const start = toMonthKey(parseISODate(item.start_date));
+    const end =
+      item.end_date && item.end_date > item.start_date
+        ? toMonthKey(parseISODate(item.end_date))
+        : start;
+    return start <= viewKey && viewKey <= end;
   });
 
   // Build cell array: nulls for leading blanks, then day numbers
@@ -98,13 +143,46 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
 
   return (
     <div className="mt-6">
-      {/* Month header */}
-      <p
-        className="mb-4 text-center text-xl font-semibold capitalize"
-        style={{ color: "var(--color-foues-navy)" }}
-      >
-        {monthName}
-      </p>
+      {/* Month header + navigation (arrows jump to the nearest month with dates) */}
+      <div className="mb-4 flex items-center justify-center gap-2 sm:gap-4">
+        <button
+          type="button"
+          onClick={() => goTo(prevKey)}
+          disabled={prevKey === undefined}
+          aria-label={
+            prevKey !== undefined ? `Mes anterior con fechas: ${monthKeyName(prevKey)}` : "No hay meses anteriores con fechas"
+          }
+          className="flex h-9 w-9 items-center justify-center rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] hover:bg-[var(--color-foues-surface-sunken)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+          style={{
+            borderColor: "var(--color-foues-border-subtle)",
+            color: "var(--color-foues-navy)",
+          }}
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <p
+          className="min-w-44 text-center text-xl font-semibold capitalize"
+          style={{ color: "var(--color-foues-navy)" }}
+          aria-live="polite"
+        >
+          {monthName}
+        </p>
+        <button
+          type="button"
+          onClick={() => goTo(nextKey)}
+          disabled={nextKey === undefined}
+          aria-label={
+            nextKey !== undefined ? `Mes siguiente con fechas: ${monthKeyName(nextKey)}` : "No hay meses siguientes con fechas"
+          }
+          className="flex h-9 w-9 items-center justify-center rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] hover:bg-[var(--color-foues-surface-sunken)] disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
+          style={{
+            borderColor: "var(--color-foues-border-subtle)",
+            color: "var(--color-foues-navy)",
+          }}
+        >
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
 
       {/* Weekday header */}
       <div
@@ -273,33 +351,15 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
         )}
       </dialog>
 
-      {/* Out-of-month items */}
-      {outOfMonth.length > 0 && (
-        <div className="mt-6">
-          <p
-            className="mb-2 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "color-mix(in srgb, var(--color-foues-navy) 60%, transparent)" }}
-          >
-            Otras fechas
-          </p>
-          <ul className="space-y-2">
-            {outOfMonth.map((item, i) => (
-              <li key={i} className="flex items-baseline gap-3">
-                <span
-                  className="shrink-0 rounded px-2 py-0.5 text-xs font-semibold text-white"
-                  style={{
-                    backgroundColor: "color-mix(in srgb, var(--color-foues-navy) 60%, transparent)",
-                  }}
-                >
-                  {formatDateRange(item.start_date, item.end_date)}
-                </span>
-                <span className="text-sm" style={{ color: "var(--color-foues-navy)" }}>
-                  {item.label}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* Current month inside the range but without dates: say so instead of
+          silently showing a blank grid (only the arrows reveal the rest). */}
+      {inMonth.length === 0 && (
+        <p
+          className="mt-4 text-center text-sm"
+          style={{ color: "var(--color-foues-text-muted)" }}
+        >
+          Este mes no tiene fechas programadas — usá las flechas para ver los meses con fechas.
+        </p>
       )}
     </div>
   );
