@@ -111,6 +111,11 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
   const totalDays = daysInMonth(anchorYear, anchorMonth);
   const firstDayOffset = getMondayOffset(new Date(anchorYear, anchorMonth, 1).getDay());
 
+  // "Today" marker (visitor's date — same hydration-edge caveat as viewKey)
+  const now = new Date();
+  const isTodayVisible = toMonthKey(now) === viewKey;
+  const todayDate = now.getDate();
+
   // Items overlapping the viewed month (boundary-spanning events show in both)
   const inMonth = sorted.filter((item) => {
     const start = toMonthKey(parseISODate(item.start_date));
@@ -205,19 +210,31 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
           const matched = getCellItems(day);
           const hasEvents = matched.length > 0;
           const extra = matched.length - MAX_VISIBLE_CHIPS;
+          const isToday = isTodayVisible && day === todayDate;
 
           const cellContent = (
             <>
-              <span
-                className={`px-1 text-xs sm:text-sm ${hasEvents ? "font-semibold" : ""}`}
-                style={{
-                  color: hasEvents
-                    ? "var(--color-foues-navy)"
-                    : "color-mix(in srgb, var(--color-foues-navy) 70%, transparent)",
-                }}
-              >
-                {day}
-              </span>
+              {isToday ? (
+                /* GCal-style today marker: filled circle around the day number */
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white sm:h-6 sm:w-6 sm:text-sm"
+                  style={{ backgroundColor: "var(--color-foues-accent)" }}
+                >
+                  {day}
+                  <span className="sr-only"> (hoy)</span>
+                </span>
+              ) : (
+                <span
+                  className={`px-1 text-xs sm:text-sm ${hasEvents ? "font-semibold" : ""}`}
+                  style={{
+                    color: hasEvents
+                      ? "var(--color-foues-navy)"
+                      : "color-mix(in srgb, var(--color-foues-navy) 70%, transparent)",
+                  }}
+                >
+                  {day}
+                </span>
+              )}
               {hasEvents && (
                 <>
                   {/* md+: stacked event chips */}
@@ -263,8 +280,15 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
               title={matched.map((m) => m.label).join(", ")}
               aria-haspopup="dialog"
               aria-label={`Día ${day}: ${matched.length} ${matched.length === 1 ? "evento" : "eventos"}`}
-              className="flex min-h-16 cursor-pointer flex-col items-start rounded-md border p-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] motion-safe:transition-colors hover:bg-[color-mix(in_srgb,var(--color-foues-accent)_6%,transparent)] md:min-h-24"
-              style={{ borderColor: "var(--color-foues-border-subtle)" }}
+              className="flex min-h-16 cursor-pointer flex-col items-start rounded-md border p-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] motion-safe:transition-colors hover:bg-[color-mix(in_srgb,var(--color-foues-accent)_12%,transparent)] md:min-h-24"
+              style={{
+                borderColor: isToday
+                  ? "var(--color-foues-accent)"
+                  : "var(--color-foues-border-subtle)",
+                backgroundColor: isToday
+                  ? "color-mix(in srgb, var(--color-foues-accent) 8%, transparent)"
+                  : undefined,
+              }}
             >
               {cellContent}
             </button>
@@ -273,7 +297,12 @@ export function KeyDatesCalendarClient({ items }: { items: DateEntry[] }) {
               key={day}
               className="flex min-h-16 flex-col items-start rounded-md border p-1 md:min-h-24"
               style={{
-                borderColor: "color-mix(in srgb, var(--color-foues-border-subtle) 50%, transparent)",
+                borderColor: isToday
+                  ? "var(--color-foues-accent)"
+                  : "color-mix(in srgb, var(--color-foues-border-subtle) 50%, transparent)",
+                backgroundColor: isToday
+                  ? "color-mix(in srgb, var(--color-foues-accent) 8%, transparent)"
+                  : undefined,
               }}
             >
               {cellContent}
