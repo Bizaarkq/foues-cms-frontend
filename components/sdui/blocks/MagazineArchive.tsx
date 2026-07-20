@@ -12,12 +12,11 @@
  */
 
 import { Suspense } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { getAllReadyMagazineIssues } from "@/lib/strapi";
 import { mediaUrl } from "@/lib/media";
 import { EmptyState } from "@/components/sdui/EmptyState";
+import { MagazineArchiveClient } from "@/components/sdui/blocks/MagazineArchiveClient";
 import type { MagazineArchiveProps } from "@/types/blocks";
 
 /** Skeleton del grid de portadas mientras el RSC async resuelve su fetch. */
@@ -68,78 +67,20 @@ async function ArchiveGrid({ publications }: MagazineArchiveProps) {
     publicationIds.length > 0 ? publicationIds : undefined
   );
 
-  return (
-    <>
-      {issues.length === 0 ? (
-        <EmptyState icon={BookOpen} message="Todavía no hay ediciones publicadas." />
-      ) : (
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {issues.map((issue) => {
-              const coverUrl = issue.cover ? mediaUrl(issue.cover) : null;
+  if (issues.length === 0) {
+    return <EmptyState icon={BookOpen} message="Todavía no hay ediciones publicadas." />;
+  }
 
-              return (
-                <Link
-                  key={issue.documentId}
-                  href={`/revista/${issue.slug}`}
-                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-foues-accent)] rounded"
-                >
-                  <div className="bg-[var(--color-foues-surface-raised)] shadow-md overflow-hidden flex flex-col h-full transition-shadow group-hover:shadow-lg">
-                    {coverUrl ? (
-                      <div className="relative aspect-[3/4] w-full overflow-hidden shrink-0">
-                        <Image
-                          src={coverUrl}
-                          alt={`Portada de ${issue.title}`}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          sizes="(max-width:640px) 100vw, (max-width:768px) 50vw, (max-width:1280px) 33vw, 25vw"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        className="aspect-[3/4] w-full shrink-0 flex items-center justify-center"
-                        style={{ background: "var(--color-foues-surface-sunken)" }}
-                        aria-hidden="true"
-                      >
-                        <BookOpen
-                          className="h-16 w-16"
-                          style={{ color: "var(--color-foues-text-muted)" }}
-                        />
-                      </div>
-                    )}
+  // Resolve media URLs server-side (mediaUrl reads server env) and hand the
+  // grid to the client component, which owns the search box + filtering.
+  const resolved = issues.map((issue) => ({
+    documentId: issue.documentId,
+    slug: issue.slug,
+    title: issue.title,
+    number: issue.number,
+    date: issue.date,
+    coverUrl: issue.cover ? mediaUrl(issue.cover) : null,
+  }));
 
-                    <div className="p-4 flex flex-col gap-1">
-                      {issue.number !== null && (
-                        <span
-                          className="text-xs font-semibold uppercase tracking-wider"
-                          style={{ color: "var(--color-foues-text-muted)" }}
-                        >
-                          Edición {issue.number}
-                        </span>
-                      )}
-                      <h3
-                        className="font-bold text-sm leading-snug line-clamp-2"
-                        style={{ color: "var(--color-foues-text-base)" }}
-                      >
-                        {issue.title}
-                      </h3>
-                      {issue.date && (
-                        <span
-                          className="text-xs"
-                          style={{ color: "var(--color-foues-text-secondary)" }}
-                        >
-                          {new Date(issue.date).toLocaleDateString("es-SV", {
-                            year: "numeric",
-                            month: "long",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-      )}
-    </>
-  );
+  return <MagazineArchiveClient issues={resolved} />;
 }
