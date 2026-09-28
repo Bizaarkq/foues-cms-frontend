@@ -9,6 +9,10 @@ import type { NextConfig } from "next";
  * (browser-facing). Both are needed: next/image fetches from the internal URL
  * server-side, while media URLs sent to the client use the public URL.
  * unoptimized in dev: Next.js 15+ blocks private IPs in the image optimizer.
+ * IMAGES_UNOPTIMIZED=true (build arg) does the same for the local Docker stack,
+ * where both CMS URLs resolve to private/loopback IPs (cms:1337, localhost:8000)
+ * and the browser loads media straight from STRAPI_PUBLIC_URL instead. Leave it
+ * unset on servers: their public CMS_DOMAIN passes the optimizer's IP check.
  */
 function parseRemotePattern(url: string) {
   const parsed = new URL(url);
@@ -21,6 +25,7 @@ function parseRemotePattern(url: string) {
 const strapiUrl = process.env.STRAPI_URL ?? "http://localhost:1337";
 const strapiPublicUrl = process.env.STRAPI_PUBLIC_URL ?? strapiUrl;
 const isDev = process.env.NODE_ENV === "development";
+const imagesUnoptimized = isDev || process.env.IMAGES_UNOPTIMIZED === "true";
 
 const remotePatterns = [parseRemotePattern(strapiUrl)];
 if (strapiPublicUrl !== strapiUrl) {
@@ -30,7 +35,7 @@ if (strapiPublicUrl !== strapiUrl) {
 const nextConfig: NextConfig = {
   output: "standalone",
   images: {
-    unoptimized: isDev,
+    unoptimized: imagesUnoptimized,
     remotePatterns,
   },
   // No experimental.serverActions.bodySizeLimit override: the

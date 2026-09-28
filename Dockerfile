@@ -45,6 +45,12 @@ ENV STRAPI_API_TOKEN=$STRAPI_API_TOKEN
 ARG FORM_SUBMIT_TOKEN
 ENV FORM_SUBMIT_TOKEN=$FORM_SUBMIT_TOKEN
 
+# Local Docker stack only: set to "true" to disable the next/image optimizer,
+# which rejects the private/loopback CMS URLs used locally (see next.config.ts).
+# Read by next.config.ts at build time; unset (optimizer on) everywhere else.
+ARG IMAGES_UNOPTIMIZED=
+ENV IMAGES_UNOPTIMIZED=$IMAGES_UNOPTIMIZED
+
 # Runtime-only vars: lib/env.ts validates them eagerly at module load,
 # which triggers during `next build` when route handlers are imported.
 # Placeholder defaults let the build succeed without baking real secrets
