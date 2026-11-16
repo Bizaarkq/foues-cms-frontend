@@ -1,29 +1,5 @@
-import Link from "next/link";
 import type { InfoCardProps } from "@/types/blocks";
-import type { ButtonElement } from "@/types/elements";
-
-const FOCUS_RING =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-foues-accent)]";
-const FILLED_CLASS = `inline-flex h-[52px] items-center rounded-lg px-8 text-base font-bold text-white transition hover:opacity-90 ${FOCUS_RING}`;
-const GHOST_CLASS = `inline-flex h-[52px] items-center rounded-lg border-2 px-8 text-base font-bold transition hover:opacity-80 ${FOCUS_RING}`;
-
-function CtaButton({ cta }: { cta: ButtonElement }) {
-  const isFilled = cta.variant?.includes("filled") ?? true;
-  const className = isFilled ? FILLED_CLASS : GHOST_CLASS;
-  const style = isFilled
-    ? { backgroundColor: "var(--color-foues-accent)" }
-    : { borderColor: "var(--color-foues-accent)", color: "var(--color-foues-accent)" };
-
-  return cta.url ? (
-    <Link href={cta.url} className={className} style={style}>
-      {cta.label}
-    </Link>
-  ) : (
-    <span className={`${className} cursor-not-allowed opacity-60`} style={style}>
-      {cta.label}
-    </span>
-  );
-}
+import { ButtonLink, kindFromVariant } from "@/components/ui/Button";
 
 export default function InfoCard({ title, body, cta }: InfoCardProps) {
   return (
@@ -60,7 +36,7 @@ export default function InfoCard({ title, body, cta }: InfoCardProps) {
 
           {cta && (
             <div className="mt-6">
-              <CtaButton cta={cta} />
+              <ButtonLink label={cta.label} url={cta.url} kind={kindFromVariant(cta.variant)} />
             </div>
           )}
         </div>

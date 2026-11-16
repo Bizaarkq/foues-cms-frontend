@@ -1,10 +1,30 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeVars } from "@/components/ThemeVars";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
 import { env } from "@/lib/env";
 import { jsonLdScriptProps } from "@/lib/seo";
+
+// Site faces, exposed as CSS variables and mapped to Tailwind in globals.css.
+// Self-hosted variable fonts (latin subset, SIL OFL 1.1 — see app/fonts/OFL.txt)
+// so the build does not need network access to Google Fonts.
+const displayFont = localFont({
+  src: "./fonts/RedHatDisplay-Variable.woff2",
+  weight: "300 900",
+  style: "normal",
+  display: "swap",
+  variable: "--font-foues-display",
+});
+
+const textFont = localFont({
+  src: "./fonts/RedHatText-Variable.woff2",
+  weight: "300 700",
+  style: "normal",
+  display: "swap",
+  variable: "--font-foues-text",
+});
 
 const SITE_NAME = "Facultad de Odontología — Universidad de El Salvador";
 
@@ -45,7 +65,7 @@ export default function RootLayout({
     <html
       lang="es"
       data-theme="cerberus"
-      className="h-full"
+      className={`${displayFont.variable} ${textFont.variable} h-full`}
       suppressHydrationWarning
     >
       <head>

@@ -10,6 +10,25 @@
 /* Typography plugin — prose styles for RichText block */
 @plugin "@tailwindcss/typography";
 
+/* Typography — next/font variables (set on <html> in app/layout.tsx) mapped
+   to Tailwind utilities: font-sans (body) and font-display (headings). */
+@theme inline {
+  --font-sans: var(--font-foues-text), system-ui, sans-serif;
+  --font-display: var(--font-foues-display), var(--font-foues-text), system-ui, sans-serif;
+}
+
+/* Skeleton's cerberus theme hardcodes system-ui; point it at the site faces. */
+[data-theme='cerberus'] {
+  --base-font-family: var(--font-foues-text), system-ui, sans-serif;
+  --heading-font-family: var(--font-foues-display), var(--font-foues-text), system-ui, sans-serif;
+}
+
+@layer base {
+  h1, h2, h3, h4 {
+    font-family: var(--font-foues-display), var(--font-foues-text), system-ui, sans-serif;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    FOUES institutional vars — namespaced --color-foues-* para
    evitar colisión con tokens de Skeleton (cerberus).
@@ -53,6 +72,13 @@
   --color-foues-action-primary: #042154;
   --color-foues-action-primary-hover: #0a3680;
 
+  /* Design-system tokens — static (not part of the CMS-editable palette) */
+  --color-foues-on-action: #ffffff; /* label on action-primary */
+  --color-foues-inverse-ink: #042154; /* label on a white button over a dark ground */
+  --color-foues-hairline: color-mix(in srgb, var(--color-foues-text-base) 13%, transparent);
+  --radius-foues-control: 8px;
+  --radius-foues-card: 12px;
+
   /* Legacy */
   --color-foues-hero-overlay: rgb(0 0 0 / 0.55);
 }
@@ -70,7 +96,7 @@
   /* Surfaces */
   --color-foues-surface: #0f172a;
   --color-foues-surface-raised: #1e293b;
-  --color-foues-surface-sunken: #0f172a;
+  --color-foues-surface-sunken: #172136;
 
   /* Borders */
   --color-foues-border: #1e293b;
@@ -99,6 +125,9 @@
   /* Action */
   --color-foues-action-primary: #4d82d6;
   --color-foues-action-primary-hover: #6b9de0;
+
+  /* Design-system tokens — white on #4d82d6 is only 3.8:1, so the label goes dark */
+  --color-foues-on-action: #0b1220;
 
   /* Legacy */
   --color-foues-hero-overlay: rgb(0 0 0 / 0.65);

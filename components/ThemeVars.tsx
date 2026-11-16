@@ -44,7 +44,7 @@ const DARK_DEFAULTS: Palette = {
   input_focus_ring: "#a888cc",
   action_primary: "#4d82d6",
   // Advanced — dark
-  surface_sunken: "#0f172a",
+  surface_sunken: "#172136",
   border: "#1e293b",
   border_subtle: "#334155",
   text_strong: "#f8fafc",

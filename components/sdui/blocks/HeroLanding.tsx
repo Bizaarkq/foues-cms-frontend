@@ -1,7 +1,7 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { HeroLandingProps } from "@/types/blocks";
 import { mediaUrl, mediaAlt } from "@/lib/media";
+import { ButtonLink, kindFromVariant } from "@/components/ui/Button";
 
 export default function HeroLanding({ title, subtitle, backgroundImage, buttons }: HeroLandingProps) {
   const imgUrl = mediaUrl(backgroundImage);
@@ -49,30 +49,15 @@ export default function HeroLanding({ title, subtitle, backgroundImage, buttons 
 
           {buttons.length > 0 && (
             <div className="mt-10 flex flex-wrap gap-4">
-              {buttons.map((btn, i) => {
-                const isFilled = btn.variant.includes("filled");
-                const focusRing =
-                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
-                const classes = isFilled
-                  ? `inline-flex h-[60px] items-center rounded-lg px-8 text-base font-bold text-white transition hover:opacity-90 ${focusRing}`
-                  : `inline-flex h-[60px] items-center rounded-lg px-8 text-base font-bold transition hover:opacity-90 ${focusRing}`;
-                const style = isFilled
-                  ? { backgroundColor: "var(--color-foues-accent)" }
-                  : { backgroundColor: "white", color: "var(--color-foues-navy)" };
-
-                if (!btn.url) {
-                  return (
-                    <span key={i} className={`${classes} cursor-not-allowed opacity-60`} style={style}>
-                      {btn.label}
-                    </span>
-                  );
-                }
-                return (
-                  <Link key={i} href={btn.url} className={classes} style={style}>
-                    {btn.label}
-                  </Link>
-                );
-              })}
+              {buttons.map((btn, i) => (
+                <ButtonLink
+                  key={i}
+                  label={btn.label}
+                  url={btn.url}
+                  kind={kindFromVariant(btn.variant)}
+                  tone="inverse"
+                />
+              ))}
             </div>
           )}
         </div>
