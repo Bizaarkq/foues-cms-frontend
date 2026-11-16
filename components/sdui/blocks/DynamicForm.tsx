@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useTransition, useState } from "react";
 import { buildZodSchema, sanitizeFields } from "@/lib/build-zod-schema";
 import type { FormDefinition } from "@/types/forms";
+import { buttonClass } from "@/components/ui/Button";
 import type { SubmitFormResult } from "@/app/actions/submit-form";
 import { TextInput } from "./form-fields/TextInput";
 import { NumberInput } from "./form-fields/NumberInput";
@@ -87,7 +88,7 @@ export default function DynamicForm({ formDef, action }: Props) {
       <button
         type="submit"
         disabled={isPending}
-        className="self-start px-6 py-2 bg-[var(--color-foues-action-primary)] text-white rounded font-medium hover:bg-[var(--color-foues-action-primary-hover)] disabled:opacity-50"
+        className={`${buttonClass("primary")} self-start disabled:pointer-events-none disabled:opacity-50`}
       >
         {isPending ? "Enviando…" : (formDef.submit_label || "Enviar")}
       </button>
